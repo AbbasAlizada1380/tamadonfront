@@ -32,12 +32,15 @@ const Delivery = () => {
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [orderDetails, setOrderDetails] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [selectedDetails, setSelectedDetail] = useState([]);
+  const pageSize = 20;
   const [userRole, setUserRole] = useState(
     decryptData(localStorage.getItem("role"))
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [deliverDate, setDeliveryDate] = useState();
   const roles = [
     { id: 1, name: "Designer" },
@@ -66,21 +69,24 @@ const Delivery = () => {
   }, []);
   const getTakenList = useCallback(async () => {
     try {
+      const token = decryptData(localStorage.getItem("auth_token"));
       const newrole = roles.find((r) => r.id == userRole)?.name;
-      const response = await axios.get(`${BASE_URL}/group/order/Completed`);
-
-      if (Array.isArray(response.data)) {
-        setOrders(response.data);
-      } else {
-        setOrders([]); // Set empty array if no data
-        console.warn("Unexpected response format:", response.data);
-      }
+      const response = await axios.get(
+        `${BASE_URL}/group/orders/status/Completed/?pagenum=${currentPage}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setOrders(response.data.results);
+      setTotalOrders(response.data.count);
+      console.log(response);
     } catch (err) {
       console.error("Error fetching List", err);
       setOrders([]); // Ensure orders is always an array
     }
-  }, [BASE_URL, userRole]);
+  });
 
+  useEffect(() => {
+    getTakenList();
+  }, [currentPage]);
   const getDetails = useCallback(
     async (id) => {
       try {
@@ -186,19 +192,6 @@ const Delivery = () => {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await getTakenList();
-        await fetchCategories();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [fetchCategories, getTakenList]);
-
-  useEffect(() => {
     const handleStorageChange = () => {
       const roleData = localStorage.getItem("role");
       if (roleData) {
@@ -283,30 +276,11 @@ const Delivery = () => {
     }
   }, [searchTerm, filteredOrders, categories]);
 
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const postsPerPage = 15;
-
-  const dataToPaginate =
-    searchResults.length > 0 ? searchResults : filteredOrders || [];
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filteredOrders]);
-
-  const totalPages = Math.ceil(dataToPaginate.length / postsPerPage);
-  const paginatedOrders = useMemo(
-    () =>
-      [...dataToPaginate]
-        .reverse()
-        .slice((currentPage - 1) * postsPerPage, currentPage * postsPerPage),
-    [currentPage, dataToPaginate]
-  );
-
   const onPageChange = useCallback((page) => {
+    console.log(page);
+
     setCurrentPage(page);
   }, []);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -365,8 +339,8 @@ const Delivery = () => {
             </tr>
           </thead>
           <tbody>
-            {dataToPaginate.length > 0 ? (
-              paginatedOrders.map((order, index) => (
+            {orders && orders.length > 0 ? (
+              orders.map((order, index) => (
                 <tr
                   key={order.id}
                   className={`text-center font-bold border-b border-gray-200 ${
@@ -428,13 +402,12 @@ const Delivery = () => {
           </tbody>
         </table>
       </div>
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-        />
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalOrders={totalOrders}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+      />
 
       {isModelOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
