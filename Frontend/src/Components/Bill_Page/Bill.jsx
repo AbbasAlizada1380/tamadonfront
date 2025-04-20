@@ -39,7 +39,7 @@ const Bill = ({ order }) => {
   };
   const formatToShamsi = (date) => {
     if (!date) return "";
-    return moment(date).format("jYYYY/jMM/jDD"); // Shamsi format
+    return moment(date).format("jYYYY/jMM/jDD HH:mm");
   };
   useEffect(() => {
     if (order || order.id) {
@@ -230,6 +230,7 @@ const Bill = ({ order }) => {
                 {formatToShamsi(prices[0]?.created_at).replace(/\//g, "-") ||
                   "unknown"}
               </p>
+              {console.log(prices[0]?.created_at)}
             </div>
             <div className="flex items-center text-lg gap-x-1">
               <p>تاریخ تحویل :</p>

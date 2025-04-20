@@ -83,8 +83,10 @@ const ReceivedList = () => {
     try {
       const token = decryptData(localStorage.getItem("auth_token"));
       const newrole = roles.find((r) => r.id == userRole)?.name;
+      console.log("fetching the data based on status", newrole);
+
       const response = await axios.get(
-        `${BASE_URL}/group/orders/status/${newrole}`,
+        `${BASE_URL}/group/orders/status_list/${newrole}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -378,7 +380,7 @@ const ReceivedList = () => {
                       {order.order_name}
                     </td>
                     <td className="border border-gray-300 px-6 py-2 text-gray-700">
-                      {designerName}
+                      {order.designer_details.full_name}
                     </td>
                     <td className="border border-gray-300 px-6 py-2 text-gray-700">
                       {categoryName}

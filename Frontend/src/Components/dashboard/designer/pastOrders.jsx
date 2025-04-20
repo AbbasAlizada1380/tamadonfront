@@ -561,15 +561,7 @@ const PastOrders = () => {
                       )?.name || "دسته‌بندی نامشخص"}
                     </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {users.find((user) => user.id === order.designer)
-                        ? `${
-                            users.find((user) => user.id === order.designer)
-                              ?.first_name
-                          } ${
-                            users.find((user) => user.id === order.designer)
-                              ?.last_name
-                          }`
-                        : "Unknown Designer"}
+                      {order.designer_details.full_name || "Unknown Designer"}
                     </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700">
                       {formatDate(order.created_at)}
