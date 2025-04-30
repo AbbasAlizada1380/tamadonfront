@@ -1,41 +1,46 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useDebounce } from "use-debounce"; // Import useDebounce
 import axios from "axios";
 import Swal from "sweetalert2";
 import jwt_decode from "jwt-decode";
 import CryptoJS from "crypto-js";
-import Pagination from "../../../Utilities/Pagination.jsx";
+import Pagination from "../../../Utilities/Pagination.jsx"; // Verify path
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 import moment from "moment-jalaali";
-import { FaSortAlphaDown, FaSortAlphaUp } from "react-icons/fa";
+import { FaSortAlphaDown, FaSortAlphaUp, FaSearch } from "react-icons/fa"; // Keep sort icons if button might return
+
+// Define the base endpoint for ALL past orders (not just today)
+// Ensure this backend endpoint supports search and ordering filters
+const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/`; // Should point to the general orders list
 
 const PastOrders = () => {
-  const [orders, setOrders] = useState([]);
+  // --- State Variables ---
+  const [orders, setOrders] = useState([]); // Data from API
   const [currentPage, setCurrentPage] = useState(1);
-  const [passedOrder, setPassedOrder] = useState([]);
+  const [passedOrder, setPassedOrder] = useState(null); // For the details view modal
   const [isViewModelOpen, setIsViewModelOpen] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [totalOrders, setTotalOrders] = useState(null);
-  const [totalCount, setTotalCount] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingData, setEditingData] = useState({});
-  const pageSize = 20;
+  const [totalOrders, setTotalOrders] = useState(0); // Total count from API for pagination
+  const [users, setUsers] = useState([]); // Assuming this is needed for designer info mapping
+  const [isEditing, setIsEditing] = useState(false); // For the details view modal edit state
+  const [editingData, setEditingData] = useState({}); // For editing attributes in modal
+  const pageSize = 20; // Items per page
+  const [loading, setLoading] = useState(true); // Loading state for API calls
+  const [error, setError] = useState(null); // Error state
 
-  // New state variables
-  const [filterDate, setFilterDate] = useState("");
-  const [sortOrder, setSortOrder] = useState("desc"); // 'asc' or 'desc'
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredOrders, setFilteredOrders] = useState([]); // Orders after filtering/searching/sorting
-  const [selectedAttribute, setSelectedAttribute] = useState(null);
+  // --- State for Server-Side Search & Sort ---
+  const [sortOrder, setSortOrder] = useState("desc"); // Default sort order ('asc' or 'desc')
+  const [searchTerm, setSearchTerm] = useState(""); // Raw search input for table
 
-  const secretKey = "TET4-1"; // Use a strong secret key
-  const decryptData = (hashedData) => {
+  // --- Debounce the search term ---
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounce input by 500ms
+
+  // --- Auth & Token Handling ---
+  const secretKey = "TET4-1"; // Consider environment variable
+  const decryptData = useCallback((hashedData) => {
     if (!hashedData) {
-      console.error("No data to decrypt");
       return null;
     }
-
     try {
       const bytes = CryptoJS.AES.decrypt(hashedData, secretKey);
       const decrypted = bytes.toString(CryptoJS.enc.Utf8);
@@ -44,441 +49,373 @@ const PastOrders = () => {
       console.error("Decryption failed:", error);
       return null;
     }
-  };
-  const [modalData, setModalData] = useState({
-    receive_price: "",
-    total_price: "",
-    reminder_price: "",
-    deliveryDate: "",
-    order: selectedOrder,
-  });
-  const [showModal, setShowModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [id, setId] = useState(decryptData(localStorage.getItem("id")));
-  const [token, setToken] = useState(
+  }, []); // secretKey is constant
+
+  const [token, setToken] = useState(() =>
     decryptData(localStorage.getItem("auth_token"))
   );
-  const [refreshingToken, setRefreshingToken] = useState(false); // Prevent multiple refresh requests
-
-  // Function to get JWT token from localStorage
-  const getAuthToken = () => {
-    return decryptData(localStorage.getItem("auth_token"));
-  };
+  const [refreshingToken, setRefreshingToken] = useState(false);
 
   // Function to check if token is expired
-  const isTokenExpired = (token) => {
-    const decoded = jwt_decode(token);
-    const currentTime = Date.now() / 1000;
-    return decoded.exp < currentTime;
-  };
+  const isTokenExpired = useCallback((tokenToCheck) => {
+    if (!tokenToCheck) return true;
+    try {
+      const decoded = jwt_decode(tokenToCheck);
+      const currentTime = Date.now() / 1000;
+      return decoded.exp < currentTime;
+    } catch (e) {
+      console.error("Failed to decode token:", e);
+      return true;
+    } // Treat as expired if decode fails
+  }, []);
 
   // Function to refresh token using the refresh token
-  const refreshAuthToken = async () => {
-    if (refreshingToken) return; // Prevent multiple refresh requests
+  const refreshAuthToken = useCallback(async () => {
+    if (refreshingToken) return token; // Return current token if already refreshing
+
+    const currentRefreshToken = decryptData(
+      localStorage.getItem("refresh_token")
+    );
+    if (!currentRefreshToken) {
+      console.error("No refresh token found.");
+      setError("Login session expired. Please log in again."); // Inform user
+      setToken(null); // Clear potentially invalid token state
+      return null;
+    }
 
     setRefreshingToken(true);
+    console.log("Attempting to refresh token...");
     try {
-      const refreshToken = decryptData(localStorage.getItem("refresh_token"));
       const response = await axios.post(
-        `${BASE_URL}/users/user/token/refresh/`,
-        { refresh: refreshToken }
+        `${BASE_URL}/users/user/token/refresh/`, // Verify endpoint
+        { refresh: currentRefreshToken }
       );
       const newAuthToken = response.data.access;
-      decryptData(localStorage.setItem("auth_token", newAuthToken));
-      setToken(newAuthToken);
+      // Encrypt before storing
+      const encryptedToken = CryptoJS.AES.encrypt(
+        JSON.stringify(newAuthToken),
+        secretKey
+      ).toString();
+      localStorage.setItem("auth_token", encryptedToken);
+      setToken(newAuthToken); // Update state with the new *decrypted* token for immediate use
+      console.log("Token refreshed successfully.");
+      setError(null); // Clear previous errors
       return newAuthToken;
     } catch (error) {
-      console.error("Error refreshing token:", error);
-      setError("Error refreshing token");
+      console.error(
+        "Error refreshing token:",
+        error.response?.data || error.message
+      );
+      setError("Session expired. Please log in again."); // Inform user
+      // Clear tokens and redirect to login might be appropriate here
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("id");
+      localStorage.removeItem("email");
+      setToken(null);
+      // Example redirect: window.location.href = '/login';
       return null;
     } finally {
       setRefreshingToken(false);
     }
-  };
+  }, [token, refreshingToken, decryptData, secretKey]); // Added dependencies
 
-  const fetchOrders = async () => {
-    if (!token) {
-      setError("No authentication token found.");
-      return;
-    }
-
-    if (isTokenExpired(token)) {
-      const newToken = await refreshAuthToken();
-      if (!newToken) {
-        setError("Unable to refresh token");
-        return;
-      }
-    }
-
-    try {
-      let url = `${BASE_URL}/group/orders/?pagenum=${currentPage}`;
-      const params = new URLSearchParams();
-      if (filterDate) {
-        const formattedDate = moment(filterDate).format("YYYY-MM-DD");
-        params.append("created_at", formattedDate);
-      }
-
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setOrders(response.data.results);
-      setTotalOrders(response.data.count);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      setError("Error fetching orders.");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const handleEdit = (order) => {
-    setIsEditing(true);
-    setEditingData(order);
-  };
-
-  const handleSave = async () => {
-    const { id, attributes } = editingData;
-    try {
-      const response = await axios.put(
-        `${BASE_URL}/group/orders/${id}/`,
-        editingData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // Optionally, update the local state or refresh data
-      setIsEditing(false);
-      handleClosePopup();
-
-      // Show success notification with Swal
-      Swal.fire({
-        icon: "success",
-        title: "بروز رسانی موفق",
-        text: "اطلاعات با موفقیت بروز شد.",
-        confirmButtonText: "باشه",
-      });
-    } catch (error) {
-      console.error("Error updating data:", error);
-
-      // Show error notification with Swal
-      Swal.fire({
-        icon: "error",
-        title: "خطا در بروز رسانی",
-        text: "مشکلی در بروز رسانی اطلاعات رخ داده است.",
-        confirmButtonText: "تلاش مجدد",
-      });
-    }
-  };
-
-  // Fetch categories from API
-  const fetchCategories = async () => {
-    if (!token) {
-      setError("No authentication token found.");
-      return;
-    }
-
-    if (isTokenExpired(token)) {
-      const newToken = await refreshAuthToken();
-      if (!newToken) {
-        setError("Unable to refresh token");
-        return;
-      }
-    }
-
+  // --- API Call for Orders (Server-Side Search/Sort) ---
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/group/categories/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch categories");
-      }
-      const categoriesData = await response.json();
-      setCategories(categoriesData);
-    } catch (error) {
-      setError("Error fetching categories");
-      console.error("Error fetching categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  const fetchUsers = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/users/api/users`);
-      setUsers(response.data);
-    } catch (error) {
-      setError("Error fetching categories");
-      console.error("Error fetching categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Function to handle date filter change
-  const handleFilterDateChange = (e) => {
-    setFilterDate(e.target.value);
-  };
+    setError(null);
+    let currentToken = token;
 
+    // Check token validity before request
+    if (!currentToken || isTokenExpired(currentToken)) {
+      console.log("Token missing or expired, attempting refresh...");
+      currentToken = await refreshAuthToken();
+      if (!currentToken) {
+        console.error("Token refresh failed or no token available.");
+        setLoading(false);
+        return; // Stop fetching if no valid token
+      }
+    }
+
+    try {
+      const headers = { Authorization: `Bearer ${currentToken}` };
+      const params = new URLSearchParams({
+        pagenum: currentPage.toString(),
+        page_size: pageSize.toString(),
+      });
+
+      if (debouncedSearchTerm) {
+        params.append("search", debouncedSearchTerm);
+      }
+
+      const orderingField = "created_at"; // Match backend field name
+      const backendOrderingParam =
+        sortOrder === "asc" ? orderingField : `-${orderingField}`;
+      params.append("ordering", backendOrderingParam);
+
+      const url = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
+      console.log("DEBUG: Fetching Past Orders URL:", url); // Debug log
+
+      const response = await axios.get(url, { headers });
+      setOrders(response.data.results || []);
+      setTotalOrders(response.data.count || 0);
+    } catch (error) {
+      console.error(
+        "Error fetching past orders:",
+        error.response?.data || error.message || error
+      );
+      if (error.response?.status === 401) {
+        // Specific handling for unauthorized
+        console.log(
+          "Unauthorized (401) error during fetch, attempting refresh..."
+        );
+        const refreshed = await refreshAuthToken(); // Try refresh again
+        if (refreshed) {
+          // Automatically retry the fetch ONLY if refresh was successful
+          // Be cautious with recursive calls, ensure base cases are handled
+          console.log("Retrying fetchOrders after successful refresh.");
+          // Directly calling fetchOrders() here might cause infinite loop if refresh keeps failing
+          // It's often better to let the user retry or handle the state update triggering a re-render
+          // For simplicity here, we'll just log. A more robust solution might use a retry counter.
+          // fetchOrders(); // Consider implications carefully before uncommenting
+        } else {
+          // Error state already set by refreshAuthToken
+          setError("Authentication failed. Please log in again.");
+        }
+      } else {
+        setError("خطا در بارگذاری لیست سفارشات.");
+        setOrders([]);
+        setTotalOrders(0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    token,
+    currentPage,
+    pageSize,
+    debouncedSearchTerm,
+    sortOrder,
+    refreshAuthToken,
+    isTokenExpired,
+  ]); // Dependencies
+
+  // --- API Call for Categories ---
+  const fetchCategories = useCallback(async () => {
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) return;
+    }
+    try {
+      const headers = { Authorization: `Bearer ${currentToken}` }; // Add if endpoint requires auth
+      const response = await axios.get(`${BASE_URL}/group/categories/`, {
+        headers,
+      });
+      setCategories(response.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, [token, refreshAuthToken, isTokenExpired]); // Dependencies
+
+  // --- API Call for Users ---
+  const fetchUsers = useCallback(async () => {
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) return;
+    }
+    try {
+      const headers = { Authorization: `Bearer ${currentToken}` }; // Add if endpoint requires auth
+      const response = await axios.get(`${BASE_URL}/users/api/users/`, {
+        headers,
+      }); // Verify endpoint
+      setUsers(response.data || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  }, [token, refreshAuthToken, isTokenExpired]); // Dependencies
+
+  // --- Event Handlers ---
   const toggleSortOrder = () => {
     setSortOrder((prevSortOrder) => (prevSortOrder === "asc" ? "desc" : "asc"));
+    setCurrentPage(1); // Reset page when sort changes
   };
 
-  const sortOrders = (ordersToSort, sortDirection) => {
-    // Create a copy to avoid mutating the original array
-    const sortedOrders = [...ordersToSort];
-
-    sortedOrders.sort((a, b) => {
-      const dateA = new Date(a.created_at || 0);
-      const dateB = new Date(b.created_at || 0);
-
-      if (sortDirection === "asc") {
-        return dateA - dateB;
-      } else {
-        return dateB - dateA;
-      }
-    });
-
-    return sortedOrders;
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    // Page reset handled by useEffect watching debouncedSearchTerm
   };
 
-  // Apply sorting, filtering, and searching
-  useEffect(() => {
-    let results = [...orders]; // Start with all orders (copy to avoid mutation)
-
-    // 1. Date Filter
-    if (filterDate) {
-      // Convert to Jalali and compare
-      const formattedDate = moment(filterDate).format("jYYYY-jMM-jDD");
-      results = results.filter((order) => {
-        const orderDateJalaali = moment(order.created_at).format(
-          "jYYYY-jMM-jDD"
-        );
-        return orderDateJalaali === formattedDate;
-      });
-    }
-
-    // 2. Search Filter
-    if (searchTerm) {
-      results = results.filter((order) => {
-        const customerName = order.customer_name || "";
-        const orderName = order.order_name || "";
-        const categoryName =
-          categories.find((category) => category.id === order.category)?.name ||
-          "";
-
-        return (
-          customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          orderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          categoryName.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      });
-    }
-
-    // 3. Sorting
-    results = sortOrders(results, sortOrder);
-    setFilteredOrders(results);
-  }, [orders, filterDate, searchTerm, sortOrder, categories]);
-
-  useEffect(() => {
-    fetchOrders(currentPage);
-  }, [currentPage]);
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
-  // Fetch orders and categories on mount
-  useEffect(() => {
-    fetchCategories();
-    fetchUsers();
-  }, [token]); // Dependency array now includes token to refetch when token changes
 
-  // Handle delete button click
-  const handleDelete = async (orderId) => {
-    let token = decryptData(localStorage.getItem("auth_token"));
-
-    if (!token) {
-      setError("No authentication token found.");
-      return;
-    }
-
-    if (isTokenExpired(token)) {
-      token = await refreshAuthToken();
-      if (!token) {
-        setError("Unable to refresh token");
+  const handleShowAttribute = (order) => {
+    setPassedOrder(order);
+    setIsViewModelOpen(true);
+    setIsEditing(false); // Ensure modal opens in view mode
+    setEditingData({}); // Clear previous edits
+  };
+  const handleClosePopup = () => {
+    setIsViewModelOpen(false);
+    setPassedOrder(null);
+    setIsEditing(false);
+  };
+  const handleModalEdit = () => {
+    // Renamed from handleEdit to avoid conflict
+    if (!passedOrder) return;
+    setIsEditing(true);
+    // Deep copy attributes for editing isolation
+    setEditingData({
+      ...passedOrder,
+      attributes: { ...(passedOrder.attributes || {}) },
+    });
+  };
+  const handleEditingDataChange = (key, value) => {
+    // Handler for modal input changes
+    setEditingData((prev) => ({
+      ...prev,
+      attributes: {
+        ...prev.attributes,
+        [key]: value,
+      },
+    }));
+  };
+  const handleSave = async () => {
+    // Handler for modal save button
+    if (!editingData || !editingData.id) return;
+    setLoading(true); // Show loading during save
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) {
+        setLoading(false);
         return;
       }
     }
+    // Prepare payload - only send attributes or necessary fields for update
+    const payload = { attributes: editingData.attributes };
+    try {
+      const headers = {
+        Authorization: `Bearer ${currentToken}`,
+        "Content-Type": "application/json",
+      };
+      // Use PATCH for partial update if supported by backend
+      await axios.patch(`${ORDERS_API_ENDPOINT}${editingData.id}/`, payload, {
+        headers,
+      });
+      Swal.fire("بروز شد!", "اطلاعات بروز شد.", "success");
+      setIsEditing(false); // Exit edit mode
+      handleClosePopup(); // Close modal
+      fetchOrders(); // Refresh the list
+    } catch (error) {
+      console.error("Error updating order:", error.response?.data || error);
+      Swal.fire("خطا!", "مشکلی در بروز رسانی رخ داد.", "error");
+      setLoading(false); // Stop loading on error
+    }
+  };
 
-    // Show confirmation dialog
+  // --- useEffect Hooks ---
+  // Initial data fetch for categories and users
+  useEffect(() => {
+    fetchCategories();
+    fetchUsers();
+    // fetchOrders will be called by the next effect after token state is potentially updated
+  }, [fetchCategories, fetchUsers]);
+
+  // Fetch orders whenever relevant dependencies change
+  useEffect(() => {
+    // Only fetch if token is potentially valid or after initial state is set
+    if (token !== undefined) {
+      // Avoid fetching with initial undefined token state if applicable
+      fetchOrders();
+    }
+  }, [fetchOrders]); // fetchOrders callback dependency includes token and other factors
+
+  // Reset page to 1 when debounced search term changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== undefined && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm]); // Only depends on the debounced term
+
+  // --- Deletion Logic ---
+  const handleDelete = async (orderId) => {
+    if (!orderId) return;
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) return;
+    }
+
     const result = await Swal.fire({
       title: "آیا مطمئن هستید؟",
-      text: "پس از حذف، این سفارش قابل بازیابی نخواهد بود!",
+      text: "این عمل قابل بازگشت نیست!",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
       cancelButtonColor: "#3085d6",
-      confirmButtonText: "بله، حذف شود",
+      confirmButtonText: "بله، حذف کن!",
       cancelButtonText: "لغو",
     });
 
-    if (!result.isConfirmed) return;
-
-    try {
-      const response = await axios.delete(
-        `${BASE_URL}/group/orders/${orderId}/`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      console.log("Order deleted:", response.data);
-      setOrders(orders.filter((order) => order.id !== orderId)); // Remove deleted order
-      // Show success message
-      Swal.fire({
-        title: "حذف شد!",
-        text: "سفارش مورد نظر با موفقیت حذف گردید.",
-        icon: "success",
-        confirmButtonText: "باشه",
-      });
-    } catch (error) {
-      console.error("Error deleting order:", error);
-
-      // Show error message
-      Swal.fire({
-        title: "خطا!",
-        text: "حذف سفارش با مشکل مواجه شد. لطفاً دوباره امتحان کنید.",
-        icon: "error",
-        confirmButtonText: "متوجه شدم",
-      });
-    }
-  };
-
-  // Handle input change in the modal
-  const handleModalChange = (e) => {
-    const { name, value } = e.target;
-    setModalData((prevData) => ({ ...prevData, [name]: value }));
-  };
-
-  // Handle form submission in modal (update order)
-
-  const handleModalSubmit = async () => {
-    const updatedOrder = {
-      price: modalData.total_price || null,
-      receive_price: modalData.receive_price || null,
-      delivery_date: modalData.deliveryDate || null,
-      order: selectedOrder || null,
-    };
-
-    try {
-      let token = getAuthToken();
-      if (!token) {
-        throw new Error("توکن احراز هویت وجود ندارد.");
-      }
-
-      if (isTokenExpired(token)) {
-        token = await refreshAuthToken();
-        if (!token) {
-          throw new Error("بروز رسانی توکن با شکست مواجه شد.");
-        }
-      }
-
-      const headers = { Authorization: `Bearer ${token}` };
-
-      // Update order status
-      await axios.post(
-        `${BASE_URL}/group/update-order-status/`,
-        { order_id: selectedOrder, status: "taken" },
-        { headers }
-      );
-
-      // Update the order details
-      await axios.post(`${BASE_URL}/group/reception-orders/`, updatedOrder, {
-        headers,
-      });
-
-      // Close the modal and update orders list
-      setShowModal(false);
-      setOrders((prevOrders) =>
-        prevOrders.filter((order) => order.id !== selectedOrder)
-      );
-
-      // Success message
-      Swal.fire({
-        icon: "success",
-        title: "قیمت با موفقیت ثبت شد",
-        text: "سفارش با موفقیت بروزرسانی شد.",
-        confirmButtonText: "تایید",
-      });
-
-      console.log("Order updated successfully.");
-    } catch (error) {
-      console.error("Error updating the order:", error);
-
-      let errorMessage = "خطا در به‌روزرسانی سفارش. لطفاً دوباره تلاش کنید.";
-
-      if (error.response) {
-        if (error.response.status === 403) {
-          errorMessage = "شما اجازه ویرایش این سفارش را ندارید.";
+    if (result.isConfirmed) {
+      setLoading(true);
+      try {
+        const headers = { Authorization: `Bearer ${currentToken}` };
+        await axios.delete(`${ORDERS_API_ENDPOINT}${orderId}/`, { headers });
+        Swal.fire("حذف شد!", "سفارش حذف گردید.", "success");
+        // Smart pagination adjustment
+        if (orders.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1); // Trigger fetch via useEffect
         } else {
-          errorMessage = `به‌روزرسانی سفارش ناموفق بود. سرور پاسخ داد: ${
-            error.response.data.message || error.response.status
-          }`;
+          fetchOrders(); // Refetch current page
         }
+      } catch (error) {
+        console.error("Error deleting order:", error.response || error);
+        Swal.fire("خطا!", "مشکلی در حذف سفارش پیش آمد.", "error");
+        setLoading(false); // Stop loading on error
       }
-
-      // Error message
-      Swal.fire({
-        icon: "error",
-        title: "خطا در ثبت قیمت",
-        text: errorMessage,
-        confirmButtonText: "متوجه شدم",
-      });
+      // Loading stopped by fetchOrders on success case
     }
   };
 
-  const handleShowAttribute = (order) => {
-    setPassedOrder(order);
-    // Convert JSON object to an array
-    const attributeArray = Object.entries(order.attributes); // Converts to array of [key, value] pairs
-    setIsViewModelOpen(!isViewModelOpen);
-    // Update state
-    setSelectedAttribute(order);
-  };
-
-  const handleClosePopup = () => {
-    setIsViewModelOpen(false);
-  };
-  //  pagination section
-
-  // Format date in Jalaali calendar
+  // --- Helper Functions ---
   const formatDate = (date) => {
-    if (!date) return "N/A"; // Handle cases where the date is null/undefined
-    return moment(date).format("jYYYY/jMM/jDD");
+    if (!date) return "N/A";
+    return moment(date).isValid()
+      ? moment(date).format("jYYYY/jMM/jDD")
+      : "تاریخ نامعتبر";
+  };
+  const getDesignerName = (designerDetails) => {
+    if (!designerDetails)
+      return <span className="text-gray-400 italic">نامشخص</span>;
+    const name = designerDetails.full_name?.trim();
+    // Fallback to email if name is empty or just whitespace
+    return (
+      name ||
+      designerDetails.email || (
+        <span className="text-gray-400 italic">نامشخص</span>
+      )
+    );
   };
 
-  // Calculate pagination
-
-  // Function to handle search change
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
+  // --- JSX Render (Original Styling) ---
   return (
-    <div className="w-[400px] md:w-[700px]  mt-10 lg:w-[90%] mx-auto  lg:overflow-hidden">
+    <div className="w-[400px] md:w-[700px] mt-10 lg:w-[90%] mx-auto lg:overflow-hidden">
       <h2 className="md:text-2xl text-base font-Ray_black text-center font-bold mb-4">
         لیست سفارشات
       </h2>
 
-      {loading && <p>در حال بارگذاری...</p>}
+      {error && (
+        <div className="text-center text-red-600 bg-red-100 p-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* Controls Container */}
       <div className="flex items-center justify-between mb-4">
         {/* Search Input */}
         <div className="flex items-center gap-x-3">
@@ -490,22 +427,25 @@ const PastOrders = () => {
           </label>
           <input
             type="text"
+            id="customerSearch" // Keep original ID
             placeholder="جستجو..."
             value={searchTerm}
             onChange={handleSearchChange}
-            className="shadow appearance-none border rounded-md w-56 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="shadow appearance-none border rounded-md w-56 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" // Original class
           />
-          <button
-            onClick={() => setSearchTerm("")}
-            className="focus:outline-none secondry-btn"
-          >
-            پاک کردن
-          </button>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="focus:outline-none secondry-btn"
+            >
+              پاک کردن
+            </button>
+          )}
         </div>
         {/* Sort Button */}
         <button
           onClick={toggleSortOrder}
-          className="flex items-center gap-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-md hover:bg-gray-00 focus:outline-none"
+          className="flex items-center gap-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-md hover:bg-gray-100 focus:outline-none" // Original class
         >
           مرتب‌سازی بر اساس تاریخ
           {sortOrder === "asc" ? (
@@ -516,8 +456,35 @@ const PastOrders = () => {
         </button>
       </div>
 
-      <center>
-        <div className=" overflow-x-scroll lg:overflow-hidden bg-white w-full rounded-lg md:w-full">
+      {/* Table Wrapper */}
+      <center className="relative">
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-center z-10 rounded-lg">
+            <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+            <span className="text-gray-600">در حال بارگذاری...</span>
+            <style jsx>{`
+              .loader {
+                border-top-color: #3b82f6;
+                animation: spinner 1.2s linear infinite;
+              }
+              @keyframes spinner {
+                0% {
+                  transform: rotate(0deg);
+                }
+                100% {
+                  transform: rotate(360deg);
+                }
+              }
+            `}</style>
+          </div>
+        )}
+        <div
+          className={`overflow-x-scroll lg:overflow-hidden bg-white w-full rounded-lg md:w-full ${
+            loading ? "opacity-30" : ""
+          }`}
+        >
+          {/* Table */}
           <table className="min-w-full bg-white shadow-md rounded-lg border border-gray-200">
             <thead className="">
               <tr className="bg-green text-gray-100 text-center">
@@ -533,7 +500,6 @@ const PastOrders = () => {
                 <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                   طراح
                 </th>
-
                 <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                   تاریخ ایجاد
                 </th>
@@ -543,123 +509,158 @@ const PastOrders = () => {
               </tr>
             </thead>
             <tbody>
-              {orders && orders.length > 0 ? (
-                orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                  >
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {order.customer_name}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {order.order_name}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {categories.find(
-                        (category) => category.id === order.category
-                      )?.name || "دسته‌بندی نامشخص"}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {order.designer_details.full_name || "Unknown Designer"}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {formatDate(order.created_at)}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      <button
-                        onClick={() => {
-                          handleShowAttribute(order);
-                        }}
-                        className="secondry-btn"
+              {!loading && orders.length > 0
+                ? orders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                    >
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        {order.customer_name}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        {order.order_name}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        {categories.find(
+                          (category) => category.id === order.category
+                        )?.name || "دسته‌بندی نامشخص"}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        {getDesignerName(order.designer_details)}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        {formatDate(order.created_at)}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        <button
+                          onClick={() => handleShowAttribute(order)}
+                          className="secondry-btn mr-2"
+                        >
+                          نمایش
+                        </button>{" "}
+                        {/* Added mr-2 */}
+                        <button
+                          onClick={() => handleDelete(order.id)}
+                          className=" bg-red-600 text-sm text-white py-2 px-5 rounded-lg hover:!scale-105 duration-300"
+                        >
+                          حذف
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                : !loading && (
+                    <tr>
+                      <td
+                        colSpan="6"
+                        className="border p-4 text-center text-gray-500"
                       >
-                        نمایش
-                      </button>{" "}
-                      <button
-                        onClick={() => {
-                          handleDelete(order.id);
-                        }}
-                        className=" bg-red-600 text-sm text-white py-2 px-5 rounded-lg hover:!scale-105 duration-300"
-                      >
-                        حذف
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="border p-2 text-center">
-                    هیچ سفارشی پیدا نشد
-                  </td>
-                </tr>
-              )}
+                        {" "}
+                        {/* Adjusted colspan */}
+                        {searchTerm
+                          ? "هیچ سفارشی مطابق با جستجوی شما یافت نشد."
+                          : "هیچ سفارشی برای نمایش وجود ندارد."}
+                      </td>
+                    </tr>
+                  )}
             </tbody>
           </table>
-          {/* Pagination Component */}
         </div>
-        <Pagination
-          currentPage={currentPage}
-          totalOrders={totalOrders}
-          pageSize={pageSize}
-          onPageChange={onPageChange}
-        />
+
+        {/* Pagination */}
+        {!loading && totalOrders > pageSize && (
+          <div className="mt-6">
+            {" "}
+            {/* Added margin top */}
+            <Pagination
+              currentPage={currentPage}
+              totalOrders={totalOrders} // Use total from API
+              pageSize={pageSize}
+              onPageChange={onPageChange}
+            />
+          </div>
+        )}
       </center>
-      {/* Conditionally render the Bill component */}
+
+      {/* Modal for Viewing/Editing Attributes */}
       {isViewModelOpen && passedOrder && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">
-              {isEditing ? "ویرایش سفارش" : "اطلاعات سفارش"}
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">
+              {isEditing ? "ویرایش جزئیات سفارش" : "جزئیات سفارش"}
+              {/* Optionally display Order ID or Name */}
+              {/* <span className="text-sm font-normal text-gray-600 ml-2">({passedOrder.order_name})</span> */}
             </h3>
-            <div className="bg-gray-100 p-4 rounded overflow-auto text-sm space-y-2">
-              {Object.entries(passedOrder.attributes).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="flex justify-between items-center border-b border-gray-300 pb-2"
-                >
-                  <span className="font-medium text-gray-700">{key}</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editingData.attributes[key] || ""}
-                      onChange={(e) =>
-                        setEditingData((prev) => ({
-                          ...prev,
-                          attributes: {
-                            ...prev.attributes,
-                            [key]: e.target.value,
-                          },
-                        }))
-                      }
-                      className="border rounded p-1 text-gray-900 w-1/2"
-                    />
-                  ) : (
-                    <span className="text-gray-900">{String(value)}</span>
-                  )}
-                </div>
-              ))}
+            <div className="flex-grow overflow-y-auto pr-2 space-y-3 mb-4 text-sm">
+              {/* Display non-attribute fields if desired */}
+              <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                <span className="font-medium text-gray-600 w-1/3">
+                  نام مشتری:
+                </span>
+                <span className="text-gray-900 w-2/3 text-right">
+                  {passedOrder.customer_name}
+                </span>
+              </div>
+              {/* ... other fixed fields ... */}
+
+              <hr className="my-3" />
+              <h4 className="font-semibold text-gray-700 mb-2">ویژگی‌ها:</h4>
+              {passedOrder.attributes &&
+              typeof passedOrder.attributes === "object" &&
+              Object.keys(passedOrder.attributes).length > 0 ? (
+                Object.entries(passedOrder.attributes).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="flex justify-between items-center border-b border-gray-200 pb-2 min-h-[36px]"
+                  >
+                    {" "}
+                    {/* Added min-height */}
+                    <span className="font-medium text-gray-600 w-1/3">
+                      {key}:
+                    </span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingData.attributes?.[key] ?? ""} // Use editingData, handle undefined
+                        onChange={(e) =>
+                          handleEditingDataChange(key, e.target.value)
+                        }
+                        className="border rounded p-1 text-gray-900 w-2/3 text-right text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" // Basic input style
+                      />
+                    ) : (
+                      <span className="text-gray-900 w-2/3 text-right">
+                        {String(value)}
+                      </span> // Ensure value is string
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 italic">
+                  ویژگی اضافی ثبت نشده است.
+                </p>
+              )}
             </div>
 
-            <div className="flex gap-x-5 justify-center mt-4">
+            {/* Modal Buttons */}
+            <div className="flex gap-x-4 justify-center mt-4 pt-4 border-t">
               <button
-                onClick={() => {
-                  handleClosePopup();
-                  setIsEditing(false);
-                }}
+                onClick={handleClosePopup}
                 className="bg-red-600 text-sm text-white py-2 px-5 rounded-lg hover:!scale-105 duration-300 hover:bg-red-700"
               >
                 بستن
               </button>
-
               {isEditing ? (
-                <button onClick={handleSave} className="secondry-btn">
-                  ذخیره
+                <button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className={`secondry-btn ${
+                    loading ? "opacity-50 cursor-wait" : ""
+                  }`}
+                >
+                  {loading ? "در حال ذخیره..." : "ذخیره"}
                 </button>
               ) : (
-                <button
-                  onClick={() => handleEdit(passedOrder)}
-                  className="secondry-btn"
-                >
+                <button onClick={handleModalEdit} className="secondry-btn">
                   ویرایش
                 </button>
               )}

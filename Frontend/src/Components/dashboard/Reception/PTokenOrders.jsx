@@ -75,12 +75,12 @@ const PTokenOrders = () => {
     }
 
     try {
-      // Fixed bill size (190mm x 320mm)
-      const billWidth = 210;
-      const billHeight = 148;
+      // A5 Portrait: 148mm x 210mm
+      const billWidth = 148;
+      const billHeight = 210;
 
       const pdf = new jsPDF({
-        orientation: "Landscape",
+        orientation: "portrait",
         unit: "mm",
         format: [billHeight, billWidth],
       });
@@ -94,7 +94,7 @@ const PTokenOrders = () => {
         useCORS: true,
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.5);
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
 
       pdf.addImage(imgData, "JPEG", 0, 0, billWidth, billHeight);
 

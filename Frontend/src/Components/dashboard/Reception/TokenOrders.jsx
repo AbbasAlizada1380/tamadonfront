@@ -75,12 +75,12 @@ const TokenOrders = () => {
     }
 
     try {
-      // Fixed bill size (190mm x 320mm)
-      const billWidth = 210;
-      const billHeight = 148;
+      // A5 Portrait: 148mm x 210mm
+      const billWidth = 148;
+      const billHeight = 210;
 
       const pdf = new jsPDF({
-        orientation: "Landscape",
+        orientation: "portrait",
         unit: "mm",
         format: [billHeight, billWidth],
       });
@@ -94,7 +94,7 @@ const TokenOrders = () => {
         useCORS: true,
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.5);
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
 
       pdf.addImage(imgData, "JPEG", 0, 0, billWidth, billHeight);
 
@@ -288,7 +288,6 @@ const TokenOrders = () => {
         );
       });
       setSearchResults(results);
-      setCurrentPage(1); // Reset to first page on new search
     } else {
       setSearchResults([]);
     }
@@ -316,9 +315,6 @@ const TokenOrders = () => {
       : Array.isArray(orders)
       ? orders
       : [];
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
@@ -490,7 +486,6 @@ const TokenOrders = () => {
             </tbody>
           </table>
         </div>
-        {/* Pagination Component */}
         <Pagination
           currentPage={currentPage}
           totalOrders={totalOrders}
@@ -498,38 +493,46 @@ const TokenOrders = () => {
           onPageChange={onPageChange}
         />
       </center>
-      {/* Show Bill Button */}
 
       {/* Popup */}
       {isModelOpen && (
         <>
+          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsModelOpen(false)}
           ></div>
 
-          <div
-            id="bill-content"
-            className="scale-75 fixed inset-0 bg-opacity-75 flex top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 items-center justify-center z-50"
-          >
-            <button
-              onClick={() => setIsModelOpen(!isModelOpen)}
-              className="absolute -top-16 border-gray-900 bg-gray-400 rounded-full p-1 h-10 w-10 text-red-800 text-3xl z-50"
+          {/* Centered Modal */}
+          <div className="fixed inset-0 flex  justify-center z-50">
+            <div
+              id="bill-content"
+              className="bg-opacity-75 h-[210mm] w-[148mm] bg-white p- pb-20 relative"
             >
-              ✕
-            </button>
-            <Bill
-              order={passedOrder}
-              orders={orders.filter((order) =>
-                selectedOrders.includes(order.id)
-              )}
-            />
-            <button
-              onClick={printBill}
-              className="absolute secondry-btn -bottom-20 text-lg px-4  z-50"
-            >
-              چاپ بیل
-            </button>
+              {/* Close button */}
+              <button
+                onClick={() => setIsModelOpen(false)}
+                className="absolute top-1/2 -translate-y-1/2 -right-20 border-gray-900 bg-gray-400 rounded-full p-1 h-10 w-10 text-red-800 text-3xl z-50"
+              >
+                ✕
+              </button>
+
+              {/* Bill content */}
+              <Bill
+                order={passedOrder}
+                orders={orders.filter((order) =>
+                  selectedOrders.includes(order.id)
+                )}
+              />
+
+              {/* Print Bill button */}
+              <button
+                onClick={printBill}
+                className="absolute -bottom-14 secondry-btn z-50"
+              >
+                چاپ بیل
+              </button>
+            </div>
           </div>
         </>
       )}

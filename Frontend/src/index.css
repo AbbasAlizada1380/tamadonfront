@@ -77,27 +77,30 @@ body::-webkit-scrollbar-track {
 #bill-content {
   display: flex;
   justify-content: center;
-  align-items: center;
-  width: 290mm;
-  height: 190mm;
-  padding: 0px;
+  width: 148mm; /* A5 width in portrait */
+  height: 210mm; /* A5 height in portrait */
+  padding: 0;
   font-family: "Vazirmatn", Arial, sans-serif;
   background: white;
   color: black;
-  border: 1px solid #ddd;
 }
 
+/* Print Styles */
 @media print {
   body * {
     visibility: hidden;
   }
+
   #bill-content,
   #bill-content * {
     visibility: visible;
   }
-  #bill-content {
+
+  /* #bill-content {
     position: absolute;
     left: 0;
     top: 0;
-  }
+    width: 100%;
+    height: 100%;
+  } */
 }

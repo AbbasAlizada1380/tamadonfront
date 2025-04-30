@@ -1,7 +1,7 @@
 import React from "react";
 
 const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
-  // console.log(totalOrders, pageSize);
+  // console.log(totalOrders);
 
   const totalPages = totalOrders ? Math.ceil(totalOrders / pageSize) : 1;
 
@@ -13,7 +13,6 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
 
   const renderPageNumbers = () => {
     const pageButtons = [];
-    const maxVisiblePages = 5;
     const sidePages = 1;
 
     const shouldShowLeftEllipsis = currentPage > sidePages + 2;

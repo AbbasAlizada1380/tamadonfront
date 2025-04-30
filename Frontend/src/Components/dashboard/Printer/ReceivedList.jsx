@@ -34,8 +34,13 @@ const ReceivedList = () => {
   const [orderDetails, setOrderDetails] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [selectedOrderId, setSelectedOrderId] = useState();
   const [orderPrice, setOrderprice] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const pageSize = 20;
+
   const [userRole, setUserRole] = useState(
     decryptData(localStorage.getItem("role"))
   );
@@ -79,28 +84,29 @@ const ReceivedList = () => {
     fetchUsers();
     fetchCategories();
   }, []);
-  const getTakenList = useCallback(async () => {
-    try {
-      const token = decryptData(localStorage.getItem("auth_token"));
-      const newrole = roles.find((r) => r.id == userRole)?.name;
-      console.log("fetching the data based on status", newrole);
-
-      const response = await axios.get(
-        `${BASE_URL}/group/orders/status_list/${newrole}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      setOrders(response.data.results);
-    } catch (err) {
-      console.error("Error fetching List", err);
-      setOrders([]); // Ensure orders is always an array
-    }
-  }, [BASE_URL, userRole]);
-
+  const getTakenList = useCallback(
+    async (currentPage) => {
+      try {
+        const token = decryptData(localStorage.getItem("auth_token"));
+        const newrole = roles.find((r) => r.id == userRole)?.name;
+        const response = await axios.get(
+          `${BASE_URL}/group/orders/status_list/${newrole}/?pagenum=${currentPage}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        setOrders(response.data.results);
+        setTotalOrders(response.data.count);
+      } catch (err) {
+        console.error("Error fetching List", err);
+        setOrders([]); // Ensure orders is always an array
+      }
+    },
+    [BASE_URL, userRole]
+  );
   const getDetails = useCallback(
     async (id) => {
       try {
@@ -123,7 +129,6 @@ const ReceivedList = () => {
     [BASE_URL, decryptData]
   );
   const convertToHijriShamsi = (dateString) => {
-    console.log(dateString);
     // Parse the date string
     const date = new Date(dateString);
 
@@ -194,7 +199,7 @@ const ReceivedList = () => {
           text: `وضعیت سفارش به 'کامل' تغییر کرد.`,
           confirmButtonText: "باشه",
         });
-        getTakenList();
+        getTakenList(currentPage);
       } catch (err) {
         console.error("Error changing status", err);
 
@@ -214,17 +219,8 @@ const ReceivedList = () => {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await getTakenList();
-        await fetchCategories();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [fetchCategories, getTakenList]);
+    getTakenList(currentPage);
+  }, [currentPage]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -285,27 +281,6 @@ const ReceivedList = () => {
     }
   }, [searchTerm, filteredOrders, categories]);
 
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const postsPerPage = 15;
-
-  const dataToPaginate =
-    searchResults.length > 0 ? searchResults : filteredOrders || [];
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filteredOrders]);
-
-  const totalPages = Math.ceil(dataToPaginate.length / postsPerPage);
-  const paginatedOrders = useMemo(
-    () =>
-      [...dataToPaginate].slice(
-        (currentPage - 1) * postsPerPage,
-        currentPage * postsPerPage
-      ),
-    [currentPage, dataToPaginate]
-  );
-
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
@@ -349,8 +324,8 @@ const ReceivedList = () => {
             </tr>
           </thead>
           <tbody>
-            {dataToPaginate.length > 0 ? (
-              paginatedOrders.map((order, index) => {
+            {orders.length > 0 ? (
+              orders.map((order, index) => {
                 const designer = users.find(
                   (user) => user.id === order.designer
                 );
@@ -420,13 +395,12 @@ const ReceivedList = () => {
           </tbody>
         </table>
       </div>
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-        />
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalOrders={totalOrders}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+      />
 
       {isModelOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
@@ -465,7 +439,7 @@ const ReceivedList = () => {
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
                 <span className="font-medium text-gray-700">تاریخ تحویل</span>
                 <span className="text-gray-900">
-                  {orderPrice[0]?.delivery_date}
+                  {orderPrice[0]?.delivery_date?.replace(/-/g, "/")}
                 </span>
               </div>
             </div>

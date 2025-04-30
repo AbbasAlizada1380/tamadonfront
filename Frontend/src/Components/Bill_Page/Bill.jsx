@@ -79,10 +79,10 @@ const Bill = ({ order }) => {
     return () => clearInterval(interval);
   }, []);
   return (
-    <div className=" bg-white  rounded-lg border-[1px] border-black h-[465px] w-[90%] mt-[140px]  ">
+    <div className=" bg-white  rounded-lg border-[1px] border-black h-[465px] w-[90%] mt-[150px]  ">
       <div className="h-[100px] border-b-[0.5px] border-black p-4 relative ">
         <div className="absolute top-0 flex justify-between w-full">
-          <div>
+          <div className="text-sm">
             <div className="flex items-start gap-x-1.5">
               <span>اسم مشتری:</span>
               <span>{order.customer_name}</span>
