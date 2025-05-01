@@ -781,7 +781,7 @@ const AddOrder = () => {
         </table>
 
         {/* Pagination */}
-        {!loading && totalOrders > pageSize && (
+        {/* {!loading && totalOrders > pageSize && ( */}
           <div className="mt-6">
             <Pagination
               currentPage={currentPage}
@@ -790,7 +790,7 @@ const AddOrder = () => {
               onPageChange={onPageChange}
             />
           </div>
-        )}
+        {/* )} */}
       </div>
     </div>
   );

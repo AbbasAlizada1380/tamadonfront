@@ -81,6 +81,9 @@ const Bill = ({ order }) => {
   return (
     <div className=" bg-white  rounded-lg border-[1px] border-black h-[465px] w-[90%] mt-[150px]  ">
       <div className="h-[100px] border-b-[0.5px] border-black p-4 relative ">
+        <div className="absolute -top-8 -left-8">
+          <span className="text-xs pl-10"> زمان صدور بیل: {currentTime}</span>
+        </div>{" "}
         <div className="absolute top-0 flex justify-between w-full">
           <div className="text-sm">
             <div className="flex items-start gap-x-1.5">
@@ -93,12 +96,10 @@ const Bill = ({ order }) => {
             </div>
             <div className="flex items-center gap-x-1.5">
               <span>نام دیزاینر:</span>
-              <span>{getDesignerName(order.designer)}</span>
+              <span>
+                {order.designer_details.full_name || "Unknown Designer"}
+              </span>
             </div>
-          </div>
-
-          <div className="flex items-center">
-            <span className="text-sm pl-10">{currentTime}</span>
           </div>
         </div>
       </div>

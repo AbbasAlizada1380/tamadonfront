@@ -29,14 +29,11 @@ const PTokenOrders = () => {
   const [remaindedPrices, setRemaindedPrices] = useState({});
   const [DDate, setDDate] = useState({});
   const [totalCount, setTotalCount] = useState(0);
-  const [nextPageUrl, setNextPageUrl] = useState(null);
-  const [prevPageUrl, setPrevPageUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const pageSize = 20;
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
   const [searchTerm, setSearchTerm] = useState(""); // Search term state
   const [searchResults, setSearchResults] = useState([]); // Search results state
@@ -59,14 +56,6 @@ const PTokenOrders = () => {
       return null;
     }
   };
-  const toggleOrderSelection = (neworder) => {
-    setSelectedOrders((prevSelected) =>
-      prevSelected.includes(neworder)
-        ? prevSelected.filter((order) => order !== neworder)
-        : [...prevSelected, neworder]
-    );
-  };
-
   const printBill = async () => {
     const element = document.getElementById("bill-content");
     if (!element) {
@@ -166,10 +155,7 @@ const PTokenOrders = () => {
       setOrders(ordersResponse.data.results);
       setTotalOrders(ordersResponse.data.count);
       setTotalCount(ordersResponse.data.count || 0);
-      setNextPageUrl(ordersResponse.data.next);
-      setPrevPageUrl(ordersResponse.data.previous);
       setTotalPages(Math.ceil(ordersResponse.data.count / 10)); // Assuming 10 items per page
-
       setCategories(categoriesResponse.data || []);
       setDesigners(usersResponse.data || []);
 
@@ -299,26 +285,10 @@ const PTokenOrders = () => {
     return category ? category.name : "نامشخص";
   };
 
-  const getDesignerName = (designerId) => {
-    const designer = designers.find((des) => des.id === designerId);
-    return designer ? designer.first_name : "نامشخص";
-  };
-
   const handleShowAttribute = (order, status) => {
     setPassedOrder(order);
     setSelectedStatus(status);
   };
-  const postsPerPage = 10;
-
-  const dataToPaginate =
-    Array.isArray(searchResults) && searchResults.length > 0
-      ? searchResults
-      : Array.isArray(orders)
-      ? orders
-      : [];
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
@@ -374,9 +344,6 @@ const PTokenOrders = () => {
           <table className="w-full  rounded-lg border  border-gray-300 shadow-md">
             <thead className=" ">
               <tr className="bg-green text-gray-100 text-center">
-                <th className="border border-gray-300 px-6 py-2.5 font-semibold text-sm md:text-base">
-                  انتخاب
-                </th>
                 <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
                   نام مشتری
                 </th>
@@ -416,13 +383,6 @@ const PTokenOrders = () => {
                     key={order.id}
                     className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
                   >
-                    <td className="border-gray-300 px-6 py-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedOrders.includes(order)}
-                        onChange={() => toggleOrderSelection(order)}
-                      />
-                    </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                       {order.customer_name || "در حال بارگذاری..."}
                     </td>
@@ -433,7 +393,9 @@ const PTokenOrders = () => {
                       {getCategoryName(order.category) || "در حال بارگذاری..."}
                     </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {getDesignerName(order.designer) || "در حال بارگذاری..."}
+                      <td className="border-gray-300 px-6 py-2 text-gray-700">
+                        {order.designer_details.full_name || "Unknown Designer"}
+                      </td>
                     </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                       {prices[order.id] || "در حال بارگذاری..."}
@@ -503,63 +465,42 @@ const PTokenOrders = () => {
       {/* Popup */}
       {isModelOpen && (
         <>
+          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsModelOpen(false)}
           ></div>
 
-          <div
-            id="bill-content"
-            className="scale-75 fixed inset-0 bg-opacity-75 flex top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 items-center justify-center z-50"
-          >
-            <button
-              onClick={() => setIsModelOpen(!isModelOpen)}
-              className="absolute -top-16 border-gray-900 bg-gray-400 rounded-full p-1 h-10 w-10 text-red-800 text-3xl z-50"
+          {/* Centered Modal */}
+          <div className="fixed inset-0 flex  justify-center z-50">
+            <div
+              id="bill-content"
+              className="bg-opacity-75 h-[210mm] w-[148mm] bg-white p- pb-20 relative"
             >
-              ✕
-            </button>
-            <Bill
-              order={passedOrder}
-              orders={orders.filter((order) =>
-                selectedOrders.includes(order.id)
-              )}
-            />
-            <button
-              onClick={printBill}
-              className="absolute secondry-btn -bottom-20 text-lg px-4  z-50"
-            >
-              چاپ بیل
-            </button>
-          </div>
-        </>
-      )}
-      {isTotalModelOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setIsModelOpen(false)}
-          ></div>
+              {/* Close button */}
+              <button
+                onClick={() => setIsModelOpen(false)}
+                className="absolute top-1/2 -translate-y-1/2 -right-20 border-gray-900 bg-gray-400 rounded-full p-1 h-10 w-10 text-red-800 text-3xl z-50"
+              >
+                ✕
+              </button>
 
-          <div
-            id="bill-content"
-            className="scale-75 fixed inset-0 bg-opacity-75 flex top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 items-center justify-center z-50"
-          >
-            <button
-              onClick={() => setIsTotalModelOpen(!isTotalModelOpen)}
-              className="absolute -top-16 border-gray-900 bg-gray-400 rounded-full p-1 h-10 w-10 text-red-800 text-3xl z-50"
-            >
-              ✕
-            </button>
-            <BillTotalpage
-              // order={passedOrder}
-              orders={orders.filter((order) => selectedOrders.includes(order))}
-            />
-            <button
-              onClick={printBill}
-              className="absolute secondry-btn -bottom-20 text-lg px-4  z-50"
-            >
-              چاپ بیل
-            </button>
+              {/* Bill content */}
+              <Bill
+                order={passedOrder}
+                orders={orders.filter((order) =>
+                  selectedOrders.includes(order.id)
+                )}
+              />
+
+              {/* Print Bill button */}
+              <button
+                onClick={printBill}
+                className="absolute -bottom-14 secondry-btn z-50"
+              >
+                چاپ بیل
+              </button>
+            </div>
           </div>
         </>
       )}
