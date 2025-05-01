@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 
 const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
-  // console.log(totalOrders);
+  const [inputPage, setInputPage] = useState("");
 
   const totalPages = totalOrders ? Math.ceil(totalOrders / pageSize) : 1;
 
@@ -11,6 +11,15 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
     }
   };
 
+  const handleInputSubmit = (e) => {
+    e.preventDefault();
+    const targetPage = parseInt(inputPage);
+    if (!isNaN(targetPage)) {
+      handlePageChange(targetPage);
+    }
+    setInputPage("");
+  };
+
   const renderPageNumbers = () => {
     const pageButtons = [];
     const sidePages = 1;
@@ -18,7 +27,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
     const shouldShowLeftEllipsis = currentPage > sidePages + 2;
     const shouldShowRightEllipsis = currentPage < totalPages - sidePages - 1;
 
-    // Always show first page
+    // First page
     pageButtons.push(
       <button
         key={1}
@@ -37,7 +46,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
       pageButtons.push(<span key="left-ellipsis">...</span>);
     }
 
-    // Middle page numbers
+    // Middle pages
     const startPage = Math.max(2, currentPage - 1);
     const endPage = Math.min(totalPages - 1, currentPage + 1);
 
@@ -61,7 +70,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
       pageButtons.push(<span key="right-ellipsis">...</span>);
     }
 
-    // Always show last page
+    // Last page
     if (totalPages > 1) {
       pageButtons.push(
         <button
@@ -82,24 +91,47 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
   };
 
   return (
-    <div className="flex justify-center items-center gap-2 mt-4 flex-wrap">
-      <button
-        onClick={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
-      >
-        « قبلی
-      </button>
+    <div className="flex flex-col items-center gap-2 mt-4">
+      <div className="flex justify-center items-center gap-2 flex-wrap">
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
+        >
+          « قبلی
+        </button>
 
-      {renderPageNumbers()}
+        {renderPageNumbers()}
 
-      <button
-        onClick={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
+        >
+          بعدی »
+        </button>
+      </div>
+
+      <form
+        onSubmit={handleInputSubmit}
+        className="flex items-center gap-2 mt-2"
       >
-        بعدی »
-      </button>
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          value={inputPage}
+          onChange={(e) => setInputPage(e.target.value)}
+          placeholder="رفتن به صفحه..."
+          className="w-24 px-2 py-1 border border-gray-300 rounded-md"
+        />
+        <button
+          type="submit"
+          className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          برو
+        </button>
+      </form>
     </div>
   );
 };
