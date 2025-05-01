@@ -24,7 +24,6 @@ const ValueForAttributes = () => {
   useEffect(() => {
     fetchCategories();
     fetchAllAttributes();
-    fetchAttributeTypes();
     fetchValues();
   }, []);
 
@@ -109,7 +108,6 @@ const ValueForAttributes = () => {
   useEffect(() => {
     fetchCategories();
     fetchAllAttributes();
-    fetchAttributeTypes();
     fetchValues();
   }, []);
 
@@ -142,15 +140,6 @@ const ValueForAttributes = () => {
       console.error("Error fetching categories:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchAttributeTypes = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/group/attribute-choices/`);
-      setAttributeTypes(response.data);
-    } catch (error) {
-      console.error("Error fetching attribute types:", error);
     }
   };
 

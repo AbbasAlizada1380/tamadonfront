@@ -19,16 +19,13 @@ const Attribute = () => {
   const [shownAttributes, setShownAttributes] = useState([]);
   const [type, setType] = useState("");
   const [editingAttributeId, setEditingAttributeId] = useState(null);
-
-  const [responseMessage, setResponseMessage] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState(""); // To store the selected type
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false); // To toggle the dropdown
 
   const handleSelect = (category) => {
     setSelectedCategory(category.id);
     setIsDropdownOpen(false);
-    setSearchTerm("")
+    setSearchTerm("");
   };
   // Fetch categories from the API
   const fetchCategories = async () => {
@@ -54,14 +51,27 @@ const Attribute = () => {
       const fetchAttributes = async () => {
         try {
           const response = await axios.get(
-            `${BASE_URL}/group/category/attribute/${selectedCategory}`
+            `${BASE_URL}/group/attribute-types/`
           );
-          const { attribute_types } = response.data;
-          setShownAttributes(attribute_types);
+          console.log(response);
+
+          const attributeTypes = response.data;
+
+          if (Array.isArray(attributeTypes)) {
+            const filteredAttributes = attributeTypes.filter(
+              (att) => att.category === selectedCategory
+            );
+            setShownAttributes(filteredAttributes);
+            console.log("Filtered Attributes:", filteredAttributes);
+          } else {
+            console.warn("attribute_types is not an array:", attributeTypes);
+            setShownAttributes([]); // optionally reset
+          }
         } catch (error) {
           console.error("Error fetching attributes:", error);
         }
       };
+
       fetchAttributes();
     } else {
       setShownAttributes([]);
@@ -97,8 +107,6 @@ const Attribute = () => {
         }
       } else {
         // Add a new attribute
-        console.log(data);
-
         response = await axios.post(`${BASE_URL}/group/attribute-types/`, data);
 
         if (response.status === 201) {
@@ -209,7 +217,7 @@ const Attribute = () => {
 
         <div className="relative w-full">
           <label htmlFor="category" className="block font-medium mb-2">
-          کتگوری
+            کتگوری
           </label>
           {/* Dropdown Button */}
           <div
@@ -251,7 +259,6 @@ const Attribute = () => {
                     onClick={() => {
                       setIsDropdownOpen(true);
                       handleSelect(category);
-                     
                     }}
                   >
                     {category.name}

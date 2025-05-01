@@ -442,18 +442,6 @@ const PastOrders = () => {
             </button>
           )}
         </div>
-        {/* Sort Button */}
-        <button
-          onClick={toggleSortOrder}
-          className="flex items-center gap-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-md hover:bg-gray-100 focus:outline-none" // Original class
-        >
-          مرتب‌سازی بر اساس تاریخ
-          {sortOrder === "asc" ? (
-            <FaSortAlphaUp className="w-4 h-4" />
-          ) : (
-            <FaSortAlphaDown className="w-4 h-4" />
-          )}
-        </button>
       </div>
 
       {/* Table Wrapper */}
