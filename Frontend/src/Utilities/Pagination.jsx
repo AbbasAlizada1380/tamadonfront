@@ -34,7 +34,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
         onClick={() => handlePageChange(1)}
         className={`px-3 py-1 rounded-md ${
           currentPage === 1
-            ? "bg-blue-500 text-white"
+            ? "bg-green text-white"
             : "bg-gray-200 hover:bg-gray-300"
         }`}
       >
@@ -57,7 +57,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
           onClick={() => handlePageChange(i)}
           className={`px-3 py-1 rounded-md ${
             currentPage === i
-              ? "bg-blue-500 text-white"
+              ? "bg-green text-white"
               : "bg-gray-200 hover:bg-gray-300"
           }`}
         >
@@ -78,7 +78,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
           onClick={() => handlePageChange(totalPages)}
           className={`px-3 py-1 rounded-md ${
             currentPage === totalPages
-              ? "bg-blue-500 text-white"
+              ? "bg-green text-white"
               : "bg-gray-200 hover:bg-gray-300"
           }`}
         >
@@ -96,7 +96,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
         <button
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
+          className="px-3 py-1 bg-gray-300 rounded-md hover:bg-green disabled:opacity-50"
         >
           « قبلی
         </button>
@@ -106,7 +106,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
         <button
           onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 disabled:opacity-50"
+          className="px-3 py-1 bg-gray-300 rounded-md hover:bg-green disabled:opacity-50"
         >
           بعدی »
         </button>
@@ -127,7 +127,7 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
         />
         <button
           type="submit"
-          className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          className="px-3 py-1 bg-green text-white rounded-md"
         >
           برو
         </button>
