@@ -122,14 +122,14 @@ const Pagination = ({ currentPage, totalOrders, pageSize, onPageChange }) => {
           max={totalPages}
           value={inputPage}
           onChange={(e) => setInputPage(e.target.value)}
-          placeholder="رفتن به صفحه..."
-          className="w-24 px-2 py-1 border border-gray-300 rounded-md"
+          placeholder="جستجوی صفحه..."
+          className="w-48 px-2 py-1 border border-gray-300 rounded-md"
         />
         <button
           type="submit"
           className="px-3 py-1 bg-green text-white rounded-md"
         >
-          برو
+          جستجو
         </button>
       </form>
     </div>
