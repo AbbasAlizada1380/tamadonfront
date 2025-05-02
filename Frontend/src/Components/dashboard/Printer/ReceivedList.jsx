@@ -99,6 +99,8 @@ const ReceivedList = () => {
           }
         );
         setOrders(response.data.results);
+        console.log(response.data.results);
+
         setTotalOrders(response.data.count);
       } catch (err) {
         console.error("Error fetching List", err);
@@ -314,6 +316,9 @@ const ReceivedList = () => {
               </th>
               <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                 طراح
+              </th>{" "}
+              <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
+                حالت
               </th>
               <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                 دسته بندی
@@ -329,11 +334,6 @@ const ReceivedList = () => {
                 const designer = users.find(
                   (user) => user.id === order.designer
                 );
-                const designerName = designer
-                  ? `${designer.first_name || ""} ${
-                      designer.last_name || ""
-                    }`.trim()
-                  : "Unknown Designer";
                 const categoryName =
                   categories.find((category) => category.id === order.category)
                     ?.name || "دسته‌بندی نامشخص";
@@ -356,6 +356,9 @@ const ReceivedList = () => {
                     </td>
                     <td className="border border-gray-300 px-6 py-2 text-gray-700">
                       {order.designer_details.full_name}
+                    </td>
+                    <td className="border border-gray-300 px-6 py-2 text-gray-700">
+                      {order.status}
                     </td>
                     <td className="border border-gray-300 px-6 py-2 text-gray-700">
                       {categoryName}

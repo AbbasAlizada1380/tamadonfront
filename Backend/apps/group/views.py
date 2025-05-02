@@ -681,13 +681,13 @@ class SuperDesignerReceptionOrdersViewSet(viewsets.ModelViewSet):
         ).select_related('designer', 'category').order_by('-created_at')
         return queryset
     
+class OrderStatusRoleViewSet(viewsets.ModelViewSet):
 
     
 
-class OrderStatusRoleViewSet(viewsets.ModelViewSet):
  
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [AllowAny] 
     pagination_class = OrderPagination
     filter_backends = [SearchFilter, DjangoFilterBackend]
     search_fields = ["secret_key", "order_name", "customer_name"]
@@ -695,52 +695,52 @@ class OrderStatusRoleViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk' 
     http_method_names = ['get', 'put', 'patch', 'delete', 'head', 'options']
 
-    def _get_user_role_display_name(self, user):
-        """Helper to safely get the role's display name."""
-        if not hasattr(user, 'role') or user.role is None:
-            return None
-        try:
-            return user.get_role_display()
-        except AttributeError:
-             print(f"Warning: Could not get role display name for user {user.id}")
-             for role_int, role_name in User.ROLE_CHOICES:
-                 if role_int == user.role:
-                     return role_name
-             return None
+    # def _get_user_role_display_name(self, user):
+    #     """Helper to safely get the role's display name."""
+    #     if not hasattr(user, 'role') or user.role is None:
+    #         return None
+    #     try:
+    #         return user.get_role_display()
+    #     except AttributeError:
+    #          print(f"Warning: Could not get role display name for user {user.id}")
+    #          for role_int, role_name in User.ROLE_CHOICES:
+    #              if role_int == user.role:
+    #                  return role_name
+    #          return None
 
 
-    def _user_can_access_status_url(self, user, status_from_url):
-        """Checks if the user's role permits accessing this specific status URL."""
-        if not status_from_url:
-            return False 
+    # def _user_can_access_status_url(self, user, status_from_url):
+    #     """Checks if the user's role permits accessing this specific status URL."""
+    #     if not status_from_url:
+    #         return False 
 
-        user_role_int = getattr(user, 'role', None)
-        is_admin = user.is_admin or user_role_int == User.Admin
-        is_super_designer = user_role_int == User.SuperDesigner
+    #     user_role_int = getattr(user, 'role', None)
+    #     is_admin = user.is_admin or user_role_int == User.Admin
+    #     is_super_designer = user_role_int == User.SuperDesigner
 
-        if is_admin or is_super_designer:
-            return True
+    #     if is_admin or is_super_designer:
+    #         return True
 
-        user_role_name = self._get_user_role_display_name(user)
-        if user_role_name and user_role_name.lower() == status_from_url.lower():
-            return True
+    #     user_role_name = self._get_user_role_display_name(user)
+    #     if user_role_name and user_role_name.lower() == status_from_url.lower():
+    #         return True
 
-        return False
-
+    #     return False
     def get_queryset(self):
         """
-        Filters the initial queryset for LIST actions based on URL status and user role.
+        Filters the queryset by the 'status' value from the URL.
         """
-        user = self.request.user
-        status_from_url = self.kwargs.get('status')
+        status_from_url = self.kwargs.get('status')  # e.g., "Completed"
 
-        if not self._user_can_access_status_url(user, status_from_url):
+        if not status_from_url:
             return Order.objects.none()
 
-        queryset = Order.objects.filter(
-            status__iexact=status_from_url
-        ).select_related('designer', 'category') # Optimize queries
-        return queryset.order_by('-created_at') # Or your preferred default order
+        return (
+        Order.objects
+        .filter(status__iexact=status_from_url)
+        .select_related('designer', 'category')
+        .order_by('-created_at')
+    )
 
     def check_object_permissions(self, request, obj):
         """
@@ -781,3 +781,8 @@ class OrderStatusRoleViewSet(viewsets.ModelViewSet):
             return True 
 
         return True
+
+
+
+
+        

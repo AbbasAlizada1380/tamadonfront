@@ -67,12 +67,11 @@ const Delivery = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
-  const getTakenList = useCallback(async () => {
+  const getTakenList = useCallback(async (pagenum) => {
     try {
       const token = decryptData(localStorage.getItem("auth_token"));
-      const newrole = roles.find((r) => r.id == userRole)?.name;
       const response = await axios.get(
-        `${BASE_URL}/group/orders/status/Completed/?pagenum=${currentPage}`,
+        `${BASE_URL}/group/orders/status_list/Completed/?pagenum=${currentPage}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setOrders(response.data.results);
@@ -329,7 +328,10 @@ const Delivery = () => {
               </th>
               <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                 دسته بندی
-              </th>{" "}
+              </th>
+              <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
+                حالت
+              </th>
               <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                 تاریخ تحویل دهی
               </th>
@@ -357,6 +359,9 @@ const Delivery = () => {
                     {categories.find(
                       (category) => category.id === order.category
                     )?.name || "دسته‌بندی نامشخص"}
+                  </td>
+                  <td className="border-gray-300 px-6 py-2 text-gray-700">
+                    {order.status}
                   </td>
                   <td className="border-gray-300 px-6 py-2 text-gray-700">
                     <span className="flex flex-col">
