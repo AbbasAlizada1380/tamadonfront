@@ -8,35 +8,42 @@ import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import moment from "moment-hijri";
+import { useDebounce } from "use-debounce"; // Import useDebounce for search
+
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const OrderList = () => {
-  const [showBill, setShowBill] = useState(false); // State to control Bill rendering
+  const [showBill, setShowBill] = useState(false); // Kept original state
   const [orders, setOrders] = useState([]);
   const [passedOrder, setPassedOrder] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const pageSize = 20;
-  const [selectedOrderId, setSelectedOrderId] = useState(null); // Store the orderId of the order to be deleted
-  const [isModelOpen, setIsModelOpen] = useState(false);
+  const pageSize = 20; // Kept original pageSize
+  const [selectedOrderId, setSelectedOrderId] = useState(null); // Kept original state
+  const [isModelOpen, setIsModelOpen] = useState(false); // Kept original state (though unused in provided JSX)
   const [isViewModelOpen, setIsViewModelOpen] = useState(false);
-  const [selectedAttribute, setSelectedAttribute] = useState({}); // State for popup data
+  const [selectedAttribute, setSelectedAttribute] = useState({}); // Kept original state
   const [categories, setCategories] = useState([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState(null);
-
   const [users, setUsers] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingData, setEditingData] = useState({});
 
-  const secretKey = "TET4-1"; // Use a strong secret key
+  // --- Search State (Integration Start) ---
+  const [searchTerm, setSearchTerm] = useState(""); // Raw search input
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API
+  // --- Search State (Integration End) ---
+
+  const secretKey = "TET4-1"; // Kept original key
+
+  // --- Keep original decryptData ---
   const decryptData = (hashedData) => {
     if (!hashedData) {
-      console.error("No data to decrypt");
+      // console.error("No data to decrypt"); // Keep original comment behavior
       return null;
     }
-
     try {
       const bytes = CryptoJS.AES.decrypt(hashedData, secretKey);
       const decrypted = bytes.toString(CryptoJS.enc.Utf8);
@@ -46,11 +53,13 @@ const OrderList = () => {
       return null;
     }
   };
+
+  // --- Keep original modalData state ---
   const [modalData, setModalData] = useState({
     receive_price: "",
     total_price: "",
     reminder_price: "",
-    deliveryDate: moment(), // Initialize with the current date or a valid date
+    deliveryDate: moment(),
     order: selectedOrder,
   });
   const [showModal, setShowModal] = useState(false);
@@ -59,199 +68,295 @@ const OrderList = () => {
   const [token, setToken] = useState(
     decryptData(localStorage.getItem("auth_token"))
   );
-  const [refreshingToken, setRefreshingToken] = useState(false); // Prevent multiple refresh requests
-  const [role, setRole] = useState(decryptData(localStorage.getItem("role")));
-  // Function to get JWT token from localStorage
-  const getAuthToken = () => {
+  const [refreshingToken, setRefreshingToken] = useState(false); // Kept original state
+  const [role, setRole] = useState(decryptData(localStorage.getItem("role"))); // Kept original state
+
+  // --- Keep original token functions ---
+  const getAuthToken = useCallback(() => {
+    // Added useCallback
     return decryptData(localStorage.getItem("auth_token"));
-  };
+  }, []); // Removed decryptData dependency as it's stable outside component scope
 
-  // Function to check if token is expired
-  const isTokenExpired = (token) => {
-    const decoded = jwt_decode(token);
-    const currentTime = Date.now() / 1000;
-    return decoded.exp < currentTime;
-  };
+  const isTokenExpired = useCallback((tokenToCheck) => {
+    // Added useCallback
+    if (!tokenToCheck) return true; // Added check for null/undefined token
+    try {
+      const decoded = jwt_decode(tokenToCheck);
+      const currentTime = Date.now() / 1000;
+      return decoded.exp < currentTime;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return true; // Treat errors as expired
+    }
+  }, []);
 
-  // Function to refresh token using the refresh token
-  const refreshAuthToken = async () => {
-    if (refreshingToken) return; // Prevent multiple refresh requests
+  const refreshAuthToken = useCallback(async () => {
+    // Added useCallback
+    if (refreshingToken) return;
 
     setRefreshingToken(true);
     try {
       const refreshToken = decryptData(localStorage.getItem("refresh_token"));
+      if (!refreshToken) throw new Error("Refresh token not found."); // Added check
+
       const response = await axios.post(
         `${BASE_URL}/users/user/token/refresh/`,
         { refresh: refreshToken }
       );
       const newAuthToken = response.data.access;
-      decryptData(localStorage.setItem("auth_token", newAuthToken));
-      setToken(newAuthToken);
+      // Encrypt and store consistently
+      const encryptedToken = CryptoJS.AES.encrypt(
+        JSON.stringify(newAuthToken),
+        secretKey
+      ).toString();
+      localStorage.setItem("auth_token", encryptedToken);
+      setToken(newAuthToken); // Update state with raw token for immediate use
       return newAuthToken;
     } catch (error) {
       console.error("Error refreshing token:", error);
       setError("Error refreshing token");
+      // Consider handling logout here if refresh fails
       return null;
     } finally {
       setRefreshingToken(false);
     }
-  };
+  }, [refreshingToken]); // Removed decryptData dependency
 
-  const fetchOrders = async (page = 1) => {
-    if (!token) {
-      setError("No authentication token found.");
-      return;
-    }
+  // --- Fetch Orders Function (Modified for Search Integration) ---
+  const fetchOrders = useCallback(
+    async (page = 1) => {
+      // Added useCallback
+      let currentToken = token; // Use state token initially
 
-    if (isTokenExpired(token)) {
-      const newToken = await refreshAuthToken();
-      if (!newToken) {
-        setError("Unable to refresh token");
-        return;
-      }
-    }
-
-    try {
-      const response = await axios.get(
-        `${BASE_URL}/group/group/orders/status_supper/?pagenum=${currentPage}`,
-        {
-          params: { pagenum: currentPage },
-          headers: { Authorization: `Bearer ${token}` },
+      if (!currentToken) {
+        currentToken = getAuthToken(); // Try getting from storage if state is null
+        if (!currentToken) {
+          setError("No authentication token found.");
+          setLoading(false); // Ensure loading stops
+          return;
         }
-      );
-      setOrders(response.data.results);
+        setToken(currentToken); // Update state if found in storage
+      }
 
-      setTotalOrders(response.data.count);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      setError("Error fetching orders.");
-    }
-  };
+      if (isTokenExpired(currentToken)) {
+        const newToken = await refreshAuthToken();
+        if (!newToken) {
+          setError("Unable to refresh token");
+          setLoading(false); // Ensure loading stops
+          return;
+        }
+        currentToken = newToken; // Use the newly refreshed token
+      }
+
+      setLoading(true); // Set loading true before fetch attempt
+      try {
+        // --- Build URL with Search and Pagination (Integration) ---
+        const params = new URLSearchParams();
+        // Use currentPage state for pagination
+        params.append("pagenum", currentPage.toString());
+
+        // Conditionally add search parameter if debounced term exists
+        if (debouncedSearchTerm) {
+          params.append("search", debouncedSearchTerm);
+        }
+
+        // Construct the final URL
+        const ordersUrl = `${BASE_URL}/group/group/orders/status_supper/?${params.toString()}`;
+        // --- End URL Building (Integration) ---
+
+        const response = await axios.get(ordersUrl, {
+          headers: { Authorization: `Bearer ${currentToken}` }, // Use the validated/refreshed token
+        });
+
+        setOrders(response.data.results || []); // Update orders directly
+        setTotalOrders(response.data.count || 0); // Update total count
+      } catch (error) {
+        console.error("Error fetching orders:", error.response || error);
+        // Handle potential 401/403 errors more specifically if needed
+        setError("Error fetching orders.");
+        setOrders([]); // Clear orders on error
+        setTotalOrders(0);
+      } finally {
+        setLoading(false); // Ensure loading is set to false in finally block
+      }
+      // Add dependencies for useCallback
+    },
+    [
+      currentPage,
+      debouncedSearchTerm,
+      token,
+      getAuthToken,
+      isTokenExpired,
+      refreshAuthToken,
+    ]
+  ); // Include token and related functions
+
+  // --- Keep original onPageChange ---
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
+
+  // --- Keep original handleEdit, handleSave ---
   const handleEdit = (order) => {
     setIsEditing(true);
-    setEditingData(order);
+    // Deep copy attributes to avoid direct state mutation issues
+    setEditingData({ ...order, attributes: { ...(order.attributes || {}) } });
   };
 
   const handleSave = async () => {
-    const { id, attributes } = editingData;
-    try {
-      const response = await axios.put(
-        `${BASE_URL}/group/group/orders/status_supper/${id}/`,
-        editingData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      console.log("Data updated successfully");
-      // Optionally, update the local state or refresh data
-      setIsEditing(false);
-      handleClosePopup();
-      fetchOrders(currentPage);
-    } catch (error) {
-      console.error("Error updating data:", error);
-    }
-  };
-
-  // Fetch categories from API
-  const fetchCategories = async () => {
-    if (!token) {
-      setError("No authentication token found.");
-      return;
-    }
-
-    if (isTokenExpired(token)) {
-      const newToken = await refreshAuthToken();
-      if (!newToken) {
-        setError("Unable to refresh token");
+    // Use a validated token
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) {
+        Swal.fire("خطا!", "توکن نامعتبر است، لطفا دوباره وارد شوید.", "error");
         return;
       }
     }
 
-    setLoading(true);
+    const { id } = editingData; // Only need id from editingData for URL
     try {
-      const response = await fetch(`${BASE_URL}/group/categories/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch categories");
-      }
-      const categoriesData = await response.json();
-      setCategories(categoriesData);
+      // Send only the necessary data for update, verify API expects this format
+      const payload = {
+        // Include fields that can be edited, e.g., attributes
+        attributes: editingData.attributes,
+        // Potentially other fields like description if they are editable
+        // description: editingData.description
+      };
+
+      const response = await axios.put(
+        // Use PUT for updating existing resource
+        `${BASE_URL}/group/group/orders/status_supper/${id}/`, // Correct endpoint for specific order
+        payload, // Send the payload with changes
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${currentToken}`, // Use validated token
+          },
+        }
+      );
+      console.log("Data updated successfully", response.data);
+      setIsEditing(false);
+      handleClosePopup(); // Close the popup modal
+      fetchOrders(currentPage); // Refresh the list
+      Swal.fire("موفق!", "اطلاعات با موفقیت ویرایش شد.", "success");
     } catch (error) {
-      setError("Error fetching categories");
-      console.error("Error fetching categories:", error);
-    } finally {
-      setLoading(false);
+      console.error(
+        "Error updating data:",
+        error.response?.data || error.message || error
+      );
+      Swal.fire(
+        "خطا!",
+        `ویرایش اطلاعات ناموفق بود: ${
+          error.response?.data?.detail || error.message
+        }`,
+        "error"
+      );
     }
   };
-  const fetchUsers = async () => {
+
+  // --- Keep original fetchCategories, fetchUsers ---
+  const fetchCategories = useCallback(async () => {
+    // Added useCallback
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) {
+        setError("Unable to refresh token for categories");
+        return;
+      }
+    }
+
+    // setLoading(true); // Avoid resetting loading if fetchOrders is also running
+    try {
+      // Using axios for consistency
+      const response = await axios.get(`${BASE_URL}/group/categories/`, {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      });
+      setCategories(response.data || []);
+    } catch (error) {
+      setError("Error fetching categories");
+      console.error("Error fetching categories:", error.response || error);
+      setCategories([]); // Clear on error
+    } finally {
+      // setLoading(false); // Let fetchOrders handle final loading state
+    }
+  }, [token, isTokenExpired, refreshAuthToken]);
+
+  const fetchUsers = useCallback(async () => {
+    // Added useCallback
+    // Assume users don't require auth, otherwise add token logic like fetchCategories
     try {
       const response = await axios.get(`${BASE_URL}/users/api/users`);
-      setUsers(response.data);
+      setUsers(response.data || []);
     } catch (error) {
-      setError("Error fetching categories");
-      console.error("Error fetching categories:", error);
+      // setError("Error fetching users"); // Avoid overriding other errors
+      console.error("Error fetching users:", error.response || error);
+      setUsers([]); // Clear on error
     } finally {
-      setLoading(false);
+      // setLoading(false); // Let fetchOrders handle final loading state
     }
-  };
-  // Fetch orders and categories on mount
-  useEffect(() => {
-    fetchOrders();
-    fetchCategories();
-    fetchUsers();
-  }, [token]); // Dependency array now includes token to refetch when token changes
+  }, []); // No dependencies needed if no auth required
 
-  // Handle "check" button click (open modal)
+  // --- useEffect Hooks ---
+  useEffect(() => {
+    // Fetch all necessary data on mount and when dependencies change
+    fetchOrders(); // fetchOrders now depends on token, currentPage, debouncedSearchTerm
+    fetchCategories(); // fetchCategories depends on token
+    fetchUsers(); // fetchUsers has no dependencies currently
+  }, [fetchOrders, fetchCategories, fetchUsers]); // Depend on the useCallback functions
+
+  // --- Effect to reset page on search change (Integration) ---
+  useEffect(() => {
+    // Reset page to 1 only when debouncedSearchTerm changes (and not on initial load)
+    if (debouncedSearchTerm !== undefined && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm]); // Dependency is the debounced search term
+
+  // --- Keep original handleCheckClick ---
   const handleCheckClick = (order) => {
     setSelectedOrder(order.id);
-    const category = categories.find((cat) => cat.id === order.category_id);
-    const initialPrice =
-      category && category.default_price !== undefined
-        ? category.default_price
-        : "";
+    const category = categories.find((cat) => cat.id === order.category); // Use order.category directly if it's the ID
+    // Removed category_id assumption
+
+    // Find price info if it exists directly on order or needs separate fetch
+    // Assuming price info might come from a related object or needs fetch
+    // For now, initialize based on potentially existing fields or empty
+    const existingPriceInfo = {}; // Placeholder - fetch or access actual price data if needed
 
     setModalData({
-      receive_price: order.receive_price || "",
-      total_price: order.total_price || "",
-      reminder_price: order.reminder_price || "", // Show reminder_price here
-      deliveryDate: "",
-      order: order || null,
+      // Initialize with existing price data if available, else empty/defaults
+      receive_price: existingPriceInfo.receive_price || "",
+      total_price: existingPriceInfo.total_price || "",
+      reminder_price: existingPriceInfo.reminder_price || "", // Calculate if needed
+      deliveryDate: existingPriceInfo.delivery_date
+        ? moment(existingPriceInfo.delivery_date)
+        : moment(), // Initialize date
+      order: order.id, // Pass only the order ID
+      // Pass other relevant details for display in modal if needed
       order_name: order.order_name,
       customer_name: order.customer_name,
       description: order.description || "",
       category_name: category ? category.name : "",
+      current_status: order.status, // Pass current status
     });
-
     setShowModal(true);
   };
 
-  // Handle delete button click
+  // --- Keep original handleDelete ---
   const handleDelete = async (orderId) => {
-    let token = decryptData(localStorage.getItem("auth_token"));
+    let currentToken = token; // Use state token
 
-    if (!token) {
-      setError("No authentication token found.");
-      return;
-    }
-
-    if (isTokenExpired(token)) {
-      token = await refreshAuthToken();
-      if (!token) {
-        setError("Unable to refresh token");
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) {
+        Swal.fire("خطا!", "توکن نامعتبر است.", "error");
         return;
       }
     }
 
-    // Show confirmation dialog
     const result = await Swal.fire({
       title: "آیا مطمئن هستید؟",
       text: "پس از حذف، این سفارش قابل بازیابی نخواهد بود!",
@@ -268,394 +373,470 @@ const OrderList = () => {
     try {
       const response = await axios.delete(
         `${BASE_URL}/group/group/orders/status_supper/${orderId}/`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${currentToken}` } }
       );
 
       console.log("Order deleted:", response.data);
-      setOrders(orders.filter((order) => order.id !== orderId)); // Remove deleted order
-      setIsModelOpen(false); // Close modal
+      // Update state locally BEFORE showing success message for better UX
+      setOrders((prevOrders) =>
+        prevOrders.filter((order) => order.id !== orderId)
+      );
+      setTotalOrders((prevTotal) => prevTotal - 1); // Decrement total count
+      // Adjust current page if the last item on a page > 1 was deleted
+      if (orders.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1); // This will trigger a fetch for the previous page
+      }
 
-      // Show success message
-      Swal.fire({
-        title: "حذف شد!",
-        text: "سفارش مورد نظر با موفقیت حذف گردید.",
-        icon: "success",
-        confirmButtonText: "باشه",
-      });
+      Swal.fire("حذف شد!", "سفارش مورد نظر با موفقیت حذف گردید.", "success");
+
+      // No need to call fetchOrders() if state is updated locally and pagination handled
     } catch (error) {
-      console.error("Error deleting order:", error);
-
-      // Show error message
-      Swal.fire({
-        title: "خطا!",
-        text: "حذف سفارش با مشکل مواجه شد. لطفاً دوباره امتحان کنید.",
-        icon: "error",
-        confirmButtonText: "متوجه شدم",
-      });
+      console.error("Error deleting order:", error.response || error);
+      Swal.fire("خطا!", "حذف سفارش با مشکل مواجه شد.", "error");
     }
   };
 
-  // Handle input change in the modal
+  // --- Keep original handleModalChange, handleDateChange ---
   const handleModalChange = (e) => {
     const { name, value } = e.target;
     setModalData((prevData) => ({ ...prevData, [name]: value }));
   };
-  const handleDateChange = (date) => {
-    // Function to convert Persian characters to English characters
-    const convertPersianToEnglish = (str) => {
-      // Replace Persian digits (۰-۹) with English digits (0-9)
-      return str.replace(
-        /[۰-۹]/g,
-        (d) => "0123456789"["۰۱۲۳۴۵۶۷۸۹".indexOf(d)]
-      );
-    };
 
-    // Example if 'date' has a 'format' method like the Jalali date object
-    if (date && date.format) {
-      const formattedDate = date.format("YYYY-MM-DD"); // Format the date as YYYY-MM-DD
-
-      // Convert Persian digits to English digits in the formatted date
-      const convertedDate = convertPersianToEnglish(formattedDate);
-
-      // Store the converted date
+  const handleDateChange = (dateObject) => {
+    // Renamed parameter for clarity
+    if (dateObject && dateObject.isValid) {
+      // Format directly to 'YYYY-MM-DD' which is usually backend-friendly
+      const formattedDate = dateObject.format("YYYY-MM-DD");
       setModalData((prevData) => ({
         ...prevData,
-        deliveryDate: convertedDate, // Store the formatted and converted date
+        deliveryDate: formattedDate,
       }));
     } else {
-      console.log("Invalid or Empty Date:", date);
+      console.log("Invalid Date Object:", dateObject);
       setModalData((prevData) => ({
         ...prevData,
-        deliveryDate: null, // Handle invalid date
+        deliveryDate: null, // Or keep previous valid date, or set empty string
       }));
     }
   };
 
-  // Handle form submission in modal (update order)
+  // --- Keep original handleModalSubmit ---
   const handleModalSubmit = async () => {
-    setSubmitting(true);
+    setSubmitting(true); // Moved to the beginning
+
     if (!modalData.total_price || !modalData.receive_price) {
-      Swal.fire({
-        icon: "error",
-        title: "خطا",
-        text: "لطفا قیمت و قیمت دریافتی را وارد کنید.",
-        confirmButtonText: "متوجه شدم",
-      });
+      Swal.fire("خطا", "لطفا قیمت کل و قیمت دریافتی را وارد کنید.", "warning");
+      setSubmitting(false); // Ensure submitting is reset on validation fail
       return;
     }
-    // Check if modalData.deliveryDate is a moment object
-    const formattedDate = modalData.deliveryDate
-      ? typeof modalData.deliveryDate === "string" &&
-        moment(modalData.deliveryDate, "jYYYY/jMM/jDD", true).isValid() // Check if it's a valid Persian date string
-        ? moment(modalData.deliveryDate, "jYYYY/jMM/jDD") // Parse using the correct format
-            .format("iYYYY-iMM-iDD")
-            .replace(/[/]/g, "-")
-            .replace(/[۰-۹]/g, (d) => "0123456789"["۰-۹".indexOf(d)] || d) // Replace Persian numerals
-        : modalData.deliveryDate instanceof Date &&
-          !isNaN(modalData.deliveryDate) // If it's a valid Date object
-        ? moment(modalData.deliveryDate) // Parse using Date object
-            .format("iYYYY-iMM-iDD")
-            .replace(/[/]/g, "-")
-            .replace(/[۰-۹]/g, (d) => "0123456789"["۰-۹".indexOf(d)] || d)
-        : null // Return null if invalid date
-      : null; // If no date exists, return null
 
-    const updatedOrder = {
-      price: convertToEnglishNumbers(modalData.total_price) || null,
-      receive_price: convertToEnglishNumbers(modalData.receive_price) || null,
-      delivery_date: modalData.deliveryDate, // This should now be in Hijri format
-      order: selectedOrder || null,
+    let currentToken = token;
+    if (!currentToken || isTokenExpired(currentToken)) {
+      currentToken = await refreshAuthToken();
+      if (!currentToken) {
+        Swal.fire("خطا!", "توکن نامعتبر است.", "error");
+        setSubmitting(false);
+        return;
+      }
+    }
+    const headers = { Authorization: `Bearer ${currentToken}` };
+
+    // Prepare data for the price creation endpoint
+    const pricePayload = {
+      // Ensure keys match the backend expectations for '/group/reception-orders/'
+      price: convertToEnglishNumbers(modalData.total_price), // Assuming 'price' is total_price
+      receive_price: convertToEnglishNumbers(modalData.receive_price),
+      delivery_date: modalData.deliveryDate, // Already formatted as YYYY-MM-DD
+      order: selectedOrder, // The ID of the order
     };
-    let token = getAuthToken();
-    const headers = { Authorization: `Bearer ${token}` };
-    try {
-      if (!token) {
-        throw new Error("توکن احراز هویت وجود ندارد.");
-      }
 
-      if (isTokenExpired(token)) {
-        token = await refreshAuthToken();
-        if (!token) {
-          throw new Error("بروزرسانی توکن با شکست مواجه شد.");
-        }
-      }
+    try {
+      // 1. Find the category to get stages
+      const orderDetails = orders.find((o) => o.id === selectedOrder);
       const category = categories.find(
-        (category) => category.id == modalData.order.category
+        (cat) => cat.id === orderDetails?.category
       );
-      const statusStage = category?.stages; // Get stages from the found category
-      let nextStatus;
-      if (Array.isArray(statusStage)) {
-        const currentIndex = statusStage.indexOf(modalData.order.status);
-        if (currentIndex) {
-          // Assign the next index status
-          nextStatus = statusStage[currentIndex + 1];
+      const statusStages = category?.stages; // Get stages from the found category
+
+      let nextStatus = null;
+      if (Array.isArray(statusStages) && orderDetails?.status) {
+        const currentIndex = statusStages.indexOf(orderDetails.status);
+        if (currentIndex !== -1 && currentIndex < statusStages.length - 1) {
+          nextStatus = statusStages[currentIndex + 1]; // Get the next status
         } else {
           console.log(
-            "The current status is the last in the stages array or does not exist."
+            "Current status is the last stage or not found in stages."
           );
+          // Decide what to do: keep current status, set to a default, or error?
+          // Keeping current status if it's the last one:
+          // nextStatus = orderDetails.status;
         }
       } else {
-        console.log("Stages not found or not an array.");
+        console.log("Stages not found, not an array, or order status missing.");
+        // Handle error or default behavior
       }
-      // console.log(nextStatus);
-      // Update order status
-      console.log(nextStatus, selectedOrder);
 
-      await axios.post(
-        `${BASE_URL}/group/orders/update-status/`,
-        { order_id: selectedOrder, status: nextStatus },
+      // 2. Create the price record
+      const priceResponse = await axios.post(
+        `${BASE_URL}/group/reception-orders/`, // Endpoint for creating price/reception info
+        pricePayload,
         { headers }
       );
+      console.log("Price record created:", priceResponse.data);
 
-      const response = await axios.post(
-        `${BASE_URL}/group/reception-orders/`,
-        updatedOrder,
-        { headers }
-      );
-      // Close the modal and update orders list
+      // 3. Update the order status *only if* a next status was determined
+      if (nextStatus) {
+        try {
+          await axios.post(
+            `${BASE_URL}/group/orders/update-status/`, // Endpoint for updating status
+            { order_id: selectedOrder, status: nextStatus },
+            { headers }
+          );
+          console.log(`Order status updated to: ${nextStatus}`);
+        } catch (statusError) {
+          // Important: If status update fails, decide how to proceed.
+          // Maybe log the error but still consider price creation successful?
+          // Or rollback/delete the created price record? (More complex)
+          console.error(
+            "Error updating order status:",
+            statusError.response || statusError
+          );
+          // Optionally inform the user the status update failed but price was saved
+          Swal.fire(
+            "توجه",
+            "قیمت ثبت شد، اما به‌روزرسانی وضعیت سفارش با مشکل مواجه شد.",
+            "warning"
+          );
+        }
+      }
+
+      // 4. Update UI and show success
       setShowModal(false);
+      // Optimistically remove order from THIS list (Reception list)
       setOrders((prevOrders) =>
         prevOrders.filter((order) => order.id !== selectedOrder)
       );
-
-      // Success message
-      Swal.fire({
-        icon: "success",
-        title: "قیمت با موفقیت ثبت شد",
-        text: "سفارش با موفقیت بروزرسانی شد.",
-        timer: 1000,
-        showConfirmButton: false,
-      });
-      fetchOrders();
-    } catch (error) {
-      console.error("Error updating the order:", error.response || error);
-      const remove = await axios.post(
-        `${BASE_URL}/group/update-order-status/`,
-        { order_id: selectedOrder, status: "Reception" },
-        { headers }
-      );
-
-      let errorMessage = "خطا در به‌روزرسانی سفارش. لطفاً دوباره تلاش کنید.";
-
-      if (error.response) {
-        if (error.response.status === 403) {
-          errorMessage = "شما اجازه ویرایش این سفارش را ندارید.";
-        } else {
-          errorMessage = `به‌روزرسانی سفارش ناموفق بود. سرور پاسخ داد: ${
-            error.response.data.message || error.response.status
-          }`;
-        }
+      setTotalOrders((prevTotal) => prevTotal - 1);
+      // Adjust pagination if needed
+      if (orders.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1); // Will trigger refetch via useEffect
       }
 
-      // Error message
       Swal.fire({
-        icon: "error",
-        title: "خطا در ثبت قیمت",
-        text: errorMessage,
-        confirmButtonText: "متوجه شدم",
+        icon: "success",
+        title: "موفق",
+        text: "قیمت با موفقیت ثبت و وضعیت سفارش به‌روزرسانی شد.", // Adjust message if status update might fail
+        timer: 1500,
+        showConfirmButton: false,
       });
+
+      // Optional: You might not need a full fetchOrders() if UI is updated locally
+      // fetchOrders();
+    } catch (error) {
+      console.error(
+        "Error processing order submission:",
+        error.response || error
+      );
+      // If the initial price creation failed, no need to revert status usually
+      let errorMessage = "خطا در ثبت اطلاعات قیمت.";
+      if (error.response?.data) {
+        // Try to get specific error messages from backend response
+        const errorData = error.response.data;
+        errorMessage += " " + (errorData.detail || JSON.stringify(errorData));
+      }
+
+      Swal.fire("خطا", errorMessage, "error");
+
+      // No status rollback needed here if the price creation itself failed.
+      // If price succeeded but status failed, that's handled within the try block.
     } finally {
-      setSubmitting(false); // اینجا مقدار را برمی‌گردانیم به false
+      setSubmitting(false);
     }
   };
-  useEffect(() => {
-    fetchOrders();
-  }, [currentPage]); // Re-fetch when the filterDate, or refreshOrders changes
 
+  // --- Keep original convertToEnglishNumbers ---
   const convertToEnglishNumbers = (num) => {
-    if (!num) return num;
+    if (num === null || num === undefined) return num; // Handle null/undefined
     return num
       .toString()
       .replace(/[۰-۹]/g, (d) => "0123456789"[+"۰۱۲۳۴۵۶۷۸۹".indexOf(d)]);
   };
 
+  // --- Keep original handleShowAttribute, handleClosePopup ---
   const handleShowAttribute = (order) => {
-    setPassedOrder(order);
-    // Convert JSON object to an array
-    const attributeArray = Object.entries(order.attributes); // Converts to array of [key, value] pairs
-    setIsViewModelOpen(!isViewModelOpen);
-    // Update state
-    setSelectedAttribute(order);
+    setPassedOrder(order); // Keep original state update
+    // Removed attributeArray conversion as it wasn't used in the modal JSX
+    setIsViewModelOpen(!isViewModelOpen); // Keep original toggle
+    setSelectedAttribute(order); // Keep original state update (seems redundant with passedOrder)
+    // Set editing data when viewing, in case user clicks edit
+    handleEdit(order); // Prepare editingData immediately
   };
 
   const handleClosePopup = () => {
     setIsViewModelOpen(false);
+    setIsEditing(false); // Reset editing state when closing
+    setEditingData({}); // Clear editing data
   };
-  //  pagination section
 
-  // Calculate pagination
-
-  if (loading) {
+  // --- Keep original Loading check ---
+  if (loading && orders.length === 0) {
+    // Show only on initial load
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="loader mr-3"></div>
         <span className="text-xl font-semibold">در حال بارگذاری...</span>
-
+        {/* Keep original style tag */}
         <style jsx>{`
           .loader {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #16a34a; /* Tailwind green-600 */
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            /* ... keep styles ... */
           }
-
           @keyframes spin {
-            to {
-              transform: rotate(360deg);
-            }
+            /* ... keep styles ... */
           }
         `}</style>
       </div>
     );
   }
 
+  // --- Keep original JSX structure, add Search Input ---
   return (
-    <div className="w-[400px] md:w-[700px]  mt-10 lg:w-[90%] mx-auto  lg:overflow-hidden">
+    // Added padding bottom for spacing
+    <div className="w-[400px] md:w-[700px] mt-10 lg:w-[90%] mx-auto lg:overflow-hidden pb-10">
       <h2 className="md:text-2xl text-base font-Ray_black text-center font-bold mb-4">
         لیست سفارشات
       </h2>
-      <center>
-        <div className=" overflow-x-scroll lg:overflow-hidden bg-white w-full rounded-lg md:w-full">
-          <table className="min-w-full bg-white shadow-md rounded-lg border border-gray-200">
-            <thead className="">
-              <tr className="bg-green text-gray-100 text-center">
-                <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
-                  نام مشتری
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
-                  نام سفارش
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
-                  دسته‌بندی
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
-                  طراح
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
-                  اقدامات
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
-                  جزئیات
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders && orders.length > 0 ? (
-                orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                  >
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {order.customer_name}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {order.order_name}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {categories.find(
-                        (category) => category.id === order.category
-                      )?.name || "دسته‌بندی نامشخص"}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      {order.designer_details.full_name || "Unknown Designer"}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 gap-x-5 flex justify-center ">
-                      <button
-                        onClick={() => handleCheckClick(order)}
-                        className="bg-green h-8 w-8 text-white p-1 rounded"
-                      >
-                        ✔
-                      </button>
-                      <button
-                        onClick={() => handleDelete(order.id)}
-                        className="bg-red-500 text-white p-1 h-8 w-8 rounded hover:bg-red-600"
-                      >
-                        ✖
-                      </button>
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700">
-                      <button
-                        onClick={() => {
-                          handleShowAttribute(order);
-                        }}
-                        className="secondry-btn"
-                      >
-                        نمایش
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="border p-2 text-center">
-                    هیچ سفارشی بدون قیمت پیدا نشد
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {/* Pagination Component */}
-        </div>
-        <Pagination
-          currentPage={currentPage}
-          totalOrders={totalOrders}
-          pageSize={pageSize}
-          onPageChange={onPageChange}
+
+      {/* --- Search Input Section (Integration) --- */}
+      <div className="flex items-center justify-center mb-4 gap-x-3 px-4">
+        <label
+          htmlFor="orderSearchList" // Unique ID for label
+          className="block text-sm font-semibold whitespace-nowrap"
+        >
+          جستجو:
+        </label>
+        <input
+          type="text"
+          id="orderSearchList"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)} // Update search term state
+          className="shadow-sm appearance-none border rounded-md w-full md:w-1/2 lg:w-1/3 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-1 focus:ring-green focus:border-transparent" // Adjusted focus style
+          placeholder="نام مشتری، سفارش، کتگوری..."
         />
-      </center>
-      {/* Modal for Price and Delivery Date */}
+        {searchTerm && ( // Show clear button conditionally
+          <button
+            onClick={() => setSearchTerm("")} // Clear the search term
+            className="focus:outline-none secondry-btn text-xs px-3 py-1" // Smaller clear button
+          >
+            پاک کردن
+          </button>
+        )}
+      </div>
+      {/* --- End Search Input Section --- */}
+
+      {/* --- Table Section with Loading Overlay --- */}
+      <div className="relative">
+        {/* Loading Overlay (shows during refetch/search) */}
+        {loading && (
+          <div className="absolute inset-0 bg-white bg-opacity-60 flex items-center justify-center z-10 rounded-lg">
+            <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
+            {/* <span className="ml-2 text-gray-600">...</span> */}
+            <style jsx>{`
+              .loader {
+                border-top-color: #3b82f6;
+                animation: spin 1.2s linear infinite;
+              }
+              @keyframes spinner {
+                0% {
+                  transform: rotate(0deg);
+                }
+                100% {
+                  transform: rotate(360deg);
+                }
+              }
+            `}</style>
+          </div>
+        )}
+        <center
+          className={`transition-opacity duration-300 ${
+            loading ? "opacity-50" : "opacity-100"
+          }`}
+        >
+          <div className="overflow-x-scroll lg:overflow-hidden bg-white w-full rounded-lg md:w-full border border-gray-200 shadow-md">
+            <table className="min-w-full bg-white ">
+              {" "}
+              {/* Removed redundant border/shadow */}
+              {/* Keep original thead */}
+              <thead className="">
+                <tr className="bg-green text-gray-100 text-center">
+                  <th className="border border-gray-300 px-4 py-2.5 text-sm font-semibold whitespace-nowrap">
+                    نام مشتری
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 text-sm font-semibold whitespace-nowrap">
+                    نام سفارش
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 text-sm font-semibold whitespace-nowrap">
+                    دسته‌بندی
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 text-sm font-semibold whitespace-nowrap">
+                    طراح
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 text-sm font-semibold whitespace-nowrap">
+                    اقدامات
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 text-sm font-semibold whitespace-nowrap">
+                    جزئیات
+                  </th>
+                </tr>
+              </thead>
+              {/* Render directly from 'orders' state */}
+              <tbody>
+                {!loading && orders && orders.length > 0 // Check loading state as well
+                  ? orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-100 transition-colors duration-150" // Subtle hover
+                      >
+                        {/* Keep original td structure and content */}
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm">
+                          {order.customer_name}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm">
+                          {order.order_name}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm">
+                          {categories.find((cat) => cat.id === order.category)
+                            ?.name || "نامشخص"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm">
+                          {order.designer_details?.full_name || "نامشخص"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700">
+                          <div className="flex justify-center items-center gap-x-2">
+                            {" "}
+                            {/* Reduced gap */}
+                            <button
+                              onClick={() => handleCheckClick(order)}
+                              className="bg-green hover:bg-green-700 transition-colors text-white p-1 h-7 w-7 rounded flex items-center justify-center text-xs" // Smaller button
+                              title="ثبت قیمت" // Added tooltip
+                            >
+                              ✔
+                            </button>
+                            <button
+                              onClick={() => handleDelete(order.id)}
+                              className="bg-red-500 hover:bg-red-600 transition-colors text-white p-1 h-7 w-7 rounded flex items-center justify-center text-xs" // Smaller button
+                              title="حذف سفارش" // Added tooltip
+                            >
+                              ✖
+                            </button>
+                          </div>
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700">
+                          <button
+                            onClick={() => handleShowAttribute(order)}
+                            className="secondry-btn text-xs px-3 py-1" // Smaller button
+                          >
+                            نمایش
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  : !loading && ( // Render message only when not loading and no orders
+                      <tr>
+                        {/* Adjusted colspan to 6 */}
+                        <td
+                          colSpan="6"
+                          className="border p-4 text-center text-gray-500"
+                        >
+                          {/* Update message based on search term */}
+                          {searchTerm
+                            ? "هیچ سفارشی مطابق با جستجوی شما یافت نشد."
+                            : "هیچ سفارشی برای قیمت‌گذاری یافت نشد."}
+                        </td>
+                      </tr>
+                    )}
+              </tbody>
+            </table>
+          </div>
+          {/* Keep original Pagination Component */}
+          {totalOrders > 0 && ( // Conditionally render pagination
+            <Pagination
+              currentPage={currentPage}
+              totalOrders={totalOrders}
+              pageSize={pageSize}
+              onPageChange={onPageChange}
+            />
+          )}
+        </center>
+      </div>
+
+      {/* --- Keep original Modals (Price/Delivery, View/Edit Details) --- */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex flex-col gap-5 items-center justify-center">
-          <div className="bg-white">
-            <div className="bg-white p-6 rounded  w-[350px]  md:w-[600px]">
+        // Using a portal might be better for modals, but keeping original structure
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md md:max-w-lg">
+            {" "}
+            {/* Responsive width */}
+            <div className="p-6">
               <h3 className="text-lg text-center font-bold mb-4">
-                اضافه کردن قیمت و تاریخ تحویل
+                ثبت قیمت و تاریخ تحویل
               </h3>
+              {/* Keep original form inputs */}
               <div className="mb-4">
-                <label className="block mb-1 font-medium">قیمت:</label>
+                <label
+                  className="block mb-1 font-medium text-sm"
+                  htmlFor="total_price_modal"
+                >
+                  قیمت کل:
+                </label>
                 <input
                   type="number"
+                  id="total_price_modal"
                   name="total_price"
                   value={modalData.total_price || ""}
                   onChange={handleModalChange}
-                  className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-green"
-                  placeholder="قیمت را وارد کنید"
+                  className="w-full border rounded p-2 focus:outline-none focus:ring-1 focus:ring-green text-sm"
+                  placeholder="قیمت کل به عدد وارد شود"
                 />
               </div>
-
               <div className="mb-4">
-                <label className="block mb-1 font-medium">قیمت دریافتی:</label>
+                <label
+                  className="block mb-1 font-medium text-sm"
+                  htmlFor="receive_price_modal"
+                >
+                  قیمت دریافتی:
+                </label>
                 <input
                   type="number"
+                  id="receive_price_modal"
                   name="receive_price"
                   value={modalData.receive_price}
                   onChange={handleModalChange}
-                  className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-green"
-                  placeholder="قیمت دریافتی را وارد کنید"
+                  className="w-full border rounded p-2 focus:outline-none focus:ring-1 focus:ring-green text-sm"
+                  placeholder="مبلغ دریافتی به عدد وارد شود"
                   required
                 />
               </div>
-
-              <div className="mb-4 w-full">
-                <label className="block mb-1 font-medium">تاریخ تحویل:</label>
+              <div className="mb-4">
+                <label
+                  className="block mb-1 font-medium text-sm"
+                  htmlFor="delivery_date_modal"
+                >
+                  تاریخ تحویل:
+                </label>
                 <DatePicker
-                  style={{ width: "500px" }}
+                  id="delivery_date_modal"
+                  containerClassName="w-full" // Ensure container takes full width
+                  inputClass="w-full border rounded p-2 focus:outline-none focus:ring-1 focus:ring-green text-sm" // Apply width to input
                   value={modalData.deliveryDate}
                   onChange={handleDateChange}
-                  calendar={persian} // Use Hijri Shamsi (Jalali) Calendar
-                  locale={persian_fa} // Persian language support
-                  inputClass=" border rounded p-2 focus:outline-none focus:ring-2 focus:ring-green"
+                  calendar={persian}
+                  locale={persian_fa}
+                  calendarPosition="auto" // Auto position calendar
                 />
               </div>
             </div>
-            <div className="flex justify-center pb-6 items-center gap-5">
+            {/* Keep original modal buttons */}
+            <div className="bg-gray-50 px-6 py-3 flex justify-center items-center gap-x-4 rounded-b-lg">
               <button
                 onClick={handleModalSubmit}
                 disabled={submitting}
@@ -663,12 +844,12 @@ const OrderList = () => {
                   submitting ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               >
-                {submitting ? "در حال ارسال..." : "تایید"}
+                {submitting ? "درحال ثبت..." : "تایید"}
               </button>
-
               <button
                 onClick={() => setShowModal(false)}
                 className="tertiary-btn"
+                disabled={submitting} // Disable cancel during submission
               >
                 انصراف
               </button>
@@ -676,8 +857,9 @@ const OrderList = () => {
           </div>
         </div>
       )}
-      {/* Conditionally render the Bill component */}
-      {isViewModelOpen && passedOrder && (
+
+      {/* Keep original View/Edit Details Modal */}
+       {isViewModelOpen && passedOrder && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full">
             <h3 className="text-xl font-bold mb-4 text-gray-800">

@@ -16,7 +16,6 @@ import moment from "moment-jalaali";
 const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/today/`; // Or '/group/orders/' if searching all
 
 const AddOrder = () => {
-  // --- State Variables ---
   const [categories, setCategories] = useState([]);
   const [dropdownState, setDropdownState] = useState({});
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -34,11 +33,9 @@ const AddOrder = () => {
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // --- State for Server-Side Search & Sort (Sort state kept for default logic) ---
   const [sortOrder, setSortOrder] = useState("desc"); // 'asc' or 'desc' - Determines default fetch order
   const [orderSearchTerm, setOrderSearchTerm] = useState(""); // Raw search input for table
 
-  // --- Debounce the search term ---
   const [debouncedSearchTerm] = useDebounce(orderSearchTerm, 500);
 
   // --- Decryption Function (stable) ---
@@ -55,7 +52,6 @@ const AddOrder = () => {
     }
   }, []); // Empty dependency array as secretKey is constant
 
-  // --- Initial Form State (stable) ---
   const getInitialFormState = useCallback(
     () => ({
       customer_name: "",
@@ -84,6 +80,7 @@ const AddOrder = () => {
       [name]: type === "checkbox" ? checked : value,
     }));
   }, []);
+  
   const handleEdit = useCallback(
     (order) => {
       if (!order) return;
@@ -118,15 +115,7 @@ const AddOrder = () => {
     setOrderSearchTerm(e.target.value);
   };
 
-  // --- Toggle sort order function (Kept for potential future use, but no UI element) ---
-  // const toggleSortOrder = () => {
-  //   const newSortOrder = sortOrder === "asc" ? "desc" : "asc";
-  //   console.log(`DEBUG: Toggling sort order from ${sortOrder} to ${newSortOrder}`);
-  //   setSortOrder(newSortOrder);
-  //   setCurrentPage(1);
-  // };
 
-  // --- API Calls ---
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -780,8 +769,7 @@ const AddOrder = () => {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        {/* {!loading && totalOrders > pageSize && ( */}
+    
           <div className="mt-6">
             <Pagination
               currentPage={currentPage}
