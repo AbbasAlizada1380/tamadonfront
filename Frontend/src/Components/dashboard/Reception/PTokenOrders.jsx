@@ -8,12 +8,9 @@ import { jsPDF } from "jspdf";
 import vazirmatnFont from "/vazirmatnBase64.txt"; // Ensure this is a valid Base64 font
 import SearchBar from "../../../Utilities/Searching"; // Adjust path if needed
 import Pagination from "../../../Utilities/Pagination"; // Adjust path if needed
-import { CiEdit } from "react-icons/ci";
 import { FaCheck, FaEdit } from "react-icons/fa";
 import { Price } from "./Price";
-
 import Swal from "sweetalert2";
-import BillTotalpage from "../../Bill_Page/BillTotalpage";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const PTokenOrders = () => {
@@ -383,75 +380,81 @@ const PTokenOrders = () => {
               </tr>
             </thead>
             <tbody className="">
-              {orders && orders.length > 0 ? (
-                (isClicked ? orders.slice(0, 5) : orders).map((order) => (
-                  <tr
-                    key={order.id}
-                    className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                  >
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.customer_name || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.order_name || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {getCategoryName(order.category) || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.designer_details.full_name || "Unknown Designer"}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {prices[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {receivedPrices[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {remaindedPrices[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {DDate[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.status || "در حال بارگذاری..."}
-                    </td>
-                    <td className="flex items-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      <button
-                        onClick={() => {
-                          handleShowAttribute(order, order.status);
-                          setIsModelOpen(true);
-                        }}
-                        className="secondry-btn"
+              {orders && orders.length > 0
+                ? (isClicked ? orders.slice(0, 5) : orders).map((order) => (
+                    <tr
+                      key={order.id}
+                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                    >
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.customer_name || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.order_name || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {getCategoryName(order.category) ||
+                          "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.designer_details.full_name || "Unknown Designer"}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {prices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {receivedPrices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {remaindedPrices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {DDate[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.status || "در حال بارگذاری..."}
+                      </td>
+                      <td className="flex items-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        <button
+                          onClick={() => {
+                            handleShowAttribute(order, order.status);
+                            setIsModelOpen(true);
+                          }}
+                          className="secondry-btn"
+                        >
+                          نمایش
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowPrice(true);
+                            setEditingPriceId(order.id);
+                          }}
+                        >
+                          <FaEdit size={20} className="text-green" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleComplete(order.id);
+                          }}
+                          className="text-green"
+                        >
+                          <FaCheck />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                : !loading && ( // Show message only when not loading
+                    <tr>
+                      <td
+                        colSpan="10"
+                        className="border p-4 text-center text-gray-500"
                       >
-                        نمایش
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowPrice(true);
-                          setEditingPriceId(order.id);
-                        }}
-                      >
-                        <FaEdit size={20} className="text-green" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleComplete(order.id);
-                        }}
-                        className="text-green"
-                      >
-                        <FaCheck />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="9" className="border p-3 text-center">
-                    هیچ سفارشی با وضعیت 'گرفته شده' وجود ندارد.
-                  </td>
-                </tr>
-              )}
+                        {searchTerm
+                          ? "هیچ سفارشی مطابق با جستجوی شما یافت نشد."
+                          : "هیچ سفارشی یافت نشد."}
+                      </td>
+                    </tr>
+                  )}
             </tbody>
           </table>
         </div>
