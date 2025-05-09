@@ -40,6 +40,7 @@ const PTokenOrders = () => {
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
+  const [isClicked, setIsClicked] = useState(false);
   const secretKey = "TET4-1";
 
   const decryptData = (hashedData) => {
@@ -93,7 +94,9 @@ const PTokenOrders = () => {
       console.error("Error generating PDF:", error);
     }
   };
-
+  const handleClick = () => {
+    setIsClicked(!isClicked);
+  };
   const getAuthToken = () => decryptData(localStorage.getItem("auth_token"));
 
   const isTokenExpired = (token) => {
@@ -371,14 +374,17 @@ const PTokenOrders = () => {
                 <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
                   حالت
                 </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                <th
+                  onClick={() => handleClick()}
+                  className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base"
+                >
                   جزئیات
                 </th>
               </tr>
             </thead>
             <tbody className="">
               {orders && orders.length > 0 ? (
-                orders.map((order) => (
+                (isClicked ? orders.slice(0, 5) : orders).map((order) => (
                   <tr
                     key={order.id}
                     className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
@@ -393,9 +399,7 @@ const PTokenOrders = () => {
                       {getCategoryName(order.category) || "در حال بارگذاری..."}
                     </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      <td className="border-gray-300 px-6 py-2 text-gray-700">
-                        {order.designer_details.full_name || "Unknown Designer"}
-                      </td>
+                      {order.designer_details.full_name || "Unknown Designer"}
                     </td>
                     <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                       {prices[order.id] || "در حال بارگذاری..."}
@@ -427,7 +431,6 @@ const PTokenOrders = () => {
                           setShowPrice(true);
                           setEditingPriceId(order.id);
                         }}
-                        className=""
                       >
                         <FaEdit size={20} className="text-green" />
                       </button>
