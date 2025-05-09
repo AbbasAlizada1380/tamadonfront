@@ -47,6 +47,7 @@ const PTokenOrders = () => {
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
+  const [isClicked, setIsClicked] = useState(false);
   const secretKey = "TET4-1";
 
   // --- Decryption Function (Made robust like TokenOrders) ---
@@ -91,12 +92,10 @@ const PTokenOrders = () => {
       console.error("Error generating PDF:", error);
     }
   };
-
-  // --- Auth Functions (Made robust like TokenOrders) ---
-  const getAuthToken = useCallback(
-    () => decryptData(localStorage.getItem("auth_token")),
-    [decryptData]
-  );
+  const handleClick = () => {
+    setIsClicked(!isClicked);
+  };
+  const getAuthToken = () => decryptData(localStorage.getItem("auth_token"));
 
   const isTokenExpired = useCallback((token) => {
     if (!token) return true;
@@ -368,74 +367,114 @@ const PTokenOrders = () => {
           نمایش بیل انتخاب شده‌ها
         </button>
       )}
-      {/* Table Section with Loading Overlay for subsequent loads/searches */}
-      <div className="relative w-full mx-auto overflow-x-auto lg:overflow-hidden">
-        {loading &&
-          orders.length > 0 && ( // Show overlay when reloading/searching
-            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
-              {/* Loader animation */}
-              <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-              <span className="ml-2 text-gray-600">در حال بارگذاری...</span>
-              <style jsx>{`
-                .loader {
-                  border-top-color: #3b82f6;
-                  animation: spinner 1.2s linear infinite;
-                }
-                @keyframes spinner {
-                  0% {
-                    transform: rotate(0deg);
-                  }
-                  100% {
-                    transform: rotate(360deg);
-                  }
-                }
-              `}</style>
-            </div>
-          )}
-        <center
-          className={`w-full ${
-            loading && orders.length > 0 ? "opacity-50" : ""
-          }`}
-        >
-          {" "}
-          {/* Dim content during load */}
-          <div className="overflow-x-scroll lg:overflow-hidden w-full md:w-full rounded-lg border border-gray-300 shadow-md">
-            {" "}
-            {/* Adjusted width from original w-[420px] */}
-            <table className="w-full">
-              <thead className=" ">
-                <tr className="bg-green text-gray-100 text-center">
-                  {/* Headers kept as in your original PTokenOrders, with consistent padding */}
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    نام مشتری
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    نام سفارش
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    دسته‌بندی
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    دیزاینر
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    قیمت کل
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    دریافتی
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    باقی‌مانده
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    تاریخ تحویل
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    حالت
-                  </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
-                    جزئیات
-                  </th>
+      <center>
+        <div className="overflow-x-scroll lg:overflow-hidden w-[420px] md:w-full rounded-lg">
+          <table className="w-full  rounded-lg border  border-gray-300 shadow-md">
+            <thead className=" ">
+              <tr className="bg-green text-gray-100 text-center">
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  نام مشتری
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5 tfont-semibold text-sm md:text-base">
+                  نام سفارش
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  دسته‌بندی
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  دیزاینر
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  قیمت کل
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  قیمت دریافت شده
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  قیمت باقی‌مانده
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  تاریخ تحویل
+                </th>
+                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
+                  حالت
+                </th>
+                <th
+                  onClick={() => handleClick()}
+                  className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base"
+                >
+                  جزئیات
+                </th>
+              </tr>
+            </thead>
+            <tbody className="">
+              {orders && orders.length > 0 ? (
+                (isClicked ? orders.slice(0, 5) : orders).map((order) => (
+                  <tr
+                    key={order.id}
+                    className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                  >
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {order.customer_name || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {order.order_name || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {getCategoryName(order.category) || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {order.designer_details.full_name || "Unknown Designer"}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {prices[order.id] || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {receivedPrices[order.id] || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {remaindedPrices[order.id] || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {DDate[order.id] || "در حال بارگذاری..."}
+                    </td>
+                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      {order.status || "در حال بارگذاری..."}
+                    </td>
+                    <td className="flex items-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                      <button
+                        onClick={() => {
+                          handleShowAttribute(order, order.status);
+                          setIsModelOpen(true);
+                        }}
+                        className="secondry-btn"
+                      >
+                        نمایش
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowPrice(true);
+                          setEditingPriceId(order.id);
+                        }}
+                      >
+                        <FaEdit size={20} className="text-green" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleComplete(order.id);
+                        }}
+                        className="text-green"
+                      >
+                        <FaCheck />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="9" className="border p-3 text-center">
+                    هیچ سفارشی با وضعیت 'گرفته شده' وجود ندارد.
+                  </td>
                 </tr>
               </thead>
               <tbody className="">
