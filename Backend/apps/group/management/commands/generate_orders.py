@@ -8,7 +8,7 @@ from apps.users.models import User
 
 
 class Command(BaseCommand):
-    help = "Generate 1000 random Order records"
+    help = "Generate 100 random Order records"
 
     def handle(self, *args, **kwargs):
         # Initialize the Faker instance
@@ -26,7 +26,7 @@ class Command(BaseCommand):
             designer = random.choice(users)  # Random user for designer
             category = random.choice(categories)  # Random category
             status = random.choice(
-                ["Reception"]
+                ["Delivery"]
             )  # Random status
 
             # Create and save the Order instance

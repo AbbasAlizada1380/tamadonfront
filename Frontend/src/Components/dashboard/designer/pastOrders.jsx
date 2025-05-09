@@ -7,10 +7,6 @@ import CryptoJS from "crypto-js";
 import Pagination from "../../../Utilities/Pagination.jsx"; // Verify path
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 import moment from "moment-jalaali";
-import { FaSortAlphaDown, FaSortAlphaUp, FaSearch } from "react-icons/fa"; // Keep sort icons if button might return
-
-// Define the base endpoint for ALL past orders (not just today)
-// Ensure this backend endpoint supports search and ordering filters
 const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/`; // Should point to the general orders list
 
 const PastOrders = () => {

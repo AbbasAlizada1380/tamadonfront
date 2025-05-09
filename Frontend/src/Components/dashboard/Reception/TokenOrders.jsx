@@ -6,7 +6,9 @@ import CryptoJS from "crypto-js";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import vazirmatnFont from "/vazirmatnBase64.txt"; // Ensure this is a valid Base64 font
-import SearchBar from "../../../Utilities/Searching"; // Adjust path if needed
+// import SearchBar from "../../../Utilities/Searching"; // Using direct input for clarity like AddOrder
+import { FaSearch } from "react-icons/fa"; // Import search icon
+import { useDebounce } from "use-debounce"; // Import useDebounce
 import Pagination from "../../../Utilities/Pagination"; // Adjust path if needed
 import { CiEdit } from "react-icons/ci";
 import { FaCheck, FaEdit } from "react-icons/fa";
@@ -15,6 +17,9 @@ import { Price } from "./Price";
 import Swal from "sweetalert2";
 import BillTotalpage from "../../Bill_Page/BillTotalpage";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Define the API endpoint for fetching orders (similar to AddOrder)
+const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/reception_list/today/`; // Or adjust if a different endpoint is needed for TokenOrders search
 
 const TokenOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -28,24 +33,27 @@ const TokenOrders = () => {
   const [receivedPrices, setReceivedPrices] = useState({});
   const [remaindedPrices, setRemaindedPrices] = useState({});
   const [DDate, setDDate] = useState({});
-  const [totalCount, setTotalCount] = useState(0);
+  // const [totalCount, setTotalCount] = useState(0); // totalOrders is already used for this
   const [loading, setLoading] = useState(true);
-  const pageSize = 20;
-  // Pagination state
+  const pageSize = 20; // Keep your desired page size
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  // const [totalPages, setTotalPages] = useState(1); // Can be calculated from totalOrders and pageSize
   const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
-  const [searchTerm, setSearchTerm] = useState(""); // Search term state
-  const [searchResults, setSearchResults] = useState([]); // Search results state
+
+  // --- Search State ---
+  const [searchTerm, setSearchTerm] = useState(""); // Raw search input
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API call
+
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const secretKey = "TET4-1";
 
-  const decryptData = (hashedData) => {
+  // --- Decryption Function (Keep as is) ---
+  const decryptData = useCallback((hashedData) => {
     if (!hashedData) {
-      console.error("No data to decrypt");
+      // console.error("No data to decrypt"); // Keep console logs minimal if preferred
       return null;
     }
     try {
@@ -56,8 +64,11 @@ const TokenOrders = () => {
       console.error("Decryption failed:", error);
       return null;
     }
-  };
+  }, []); // Empty dependency array as secretKey is constant
+
+  // --- Helper Functions (Keep printBill, getAuthToken, isTokenExpired, refreshAuthToken as is) ---
   const printBill = async () => {
+    // ... (keep existing printBill logic)
     const element = document.getElementById("bill-content");
     if (!element) {
       console.error("Bill content not found!");
@@ -95,29 +106,57 @@ const TokenOrders = () => {
     }
   };
 
-  const getAuthToken = () => decryptData(localStorage.getItem("auth_token"));
+  const getAuthToken = useCallback(
+    () => decryptData(localStorage.getItem("auth_token")),
+    [decryptData]
+  );
 
   const isTokenExpired = (token) => {
-    const decoded = jwt_decode(token);
-    const currentTime = Date.now() / 1000;
-    return decoded.exp < currentTime;
-  };
-
-  const refreshAuthToken = async () => {
     try {
-      const response = await axios.post(
-        `${BASE_URL}/users/user/token/refresh/`
-      );
-      const newAuthToken = response.data.access;
-      decryptData(localStorage.setItem("auth_token", newAuthToken));
-      return newAuthToken;
+      const decoded = jwt_decode(token);
+      const currentTime = Date.now() / 1000;
+      return decoded.exp < currentTime;
     } catch (error) {
-      console.error("Unable to refresh token", error);
-      return null;
+      console.error("Error decoding token:", error);
+      return true; // Assume expired if decoding fails
     }
   };
 
-  const fetchData = async (pageUrl = null) => {
+  const refreshAuthToken = useCallback(async () => {
+    try {
+      // Assuming refresh token logic exists and is stored securely
+      const refreshToken = decryptData(localStorage.getItem("refresh_token")); // Or however you store it
+      if (!refreshToken) throw new Error("Refresh token not found.");
+
+      const response = await axios.post(
+        `${BASE_URL}/users/user/token/refresh/`,
+        {
+          refresh: refreshToken,
+        }
+      );
+
+      const newAuthToken = response.data.access;
+      // Encrypt and store the new token (ensure encryption is consistent)
+      const encryptedToken = CryptoJS.AES.encrypt(
+        JSON.stringify(newAuthToken),
+        secretKey
+      ).toString();
+      localStorage.setItem("auth_token", encryptedToken);
+      // Optionally update refresh token if backend sends a new one
+      // if (response.data.refresh) { ... }
+      console.log("Token refreshed successfully.");
+      return newAuthToken; // Return the raw (decrypted) new token for immediate use
+    } catch (error) {
+      console.error("Unable to refresh token", error);
+      // Handle logout or redirect to login if refresh fails
+      // e.g., localStorage.clear(); window.location.href = '/login';
+      return null;
+    }
+  }, [decryptData]); // Add decryptData dependency
+
+  // --- Fetch Data Function (Modified for Search) ---
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     let token = getAuthToken();
 
     if (!token) {
@@ -127,94 +166,145 @@ const TokenOrders = () => {
     }
 
     if (isTokenExpired(token)) {
+      console.log("Auth token expired, attempting refresh...");
       token = await refreshAuthToken();
       if (!token) {
-        console.error("Unable to refresh token.");
+        console.error("Token refresh failed. Aborting fetch.");
+        // Handle logout or redirect appropriately here
         setLoading(false);
         return;
       }
     }
 
     try {
-      // Determine which URL to use for fetching orders
-      const ordersUrl =
-        pageUrl ||
-        `${BASE_URL}/group/orders/reception_list/today/?pagenum=${currentPage}`;
+      const headers = { Authorization: `Bearer ${token}` };
 
+      // --- Build URL with Search and Pagination ---
+      const params = new URLSearchParams({
+        pagenum: currentPage.toString(),
+        page_size: pageSize.toString(), // Add page_size if your API supports it
+      });
+
+      if (debouncedSearchTerm) {
+        params.append("search", debouncedSearchTerm); // Add search parameter if term exists
+      }
+
+      // Ensure the endpoint supports these parameters
+      const ordersUrl = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
+      // --- End URL Building ---
+
+      // Fetch orders, categories, and users (keep this structure if needed)
       const [ordersResponse, categoriesResponse, usersResponse] =
         await Promise.all([
-          axios.get(ordersUrl, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${BASE_URL}/group/categories/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${BASE_URL}/users/api/users/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          axios.get(ordersUrl, { headers }), // Use the constructed URL
+          axios.get(`${BASE_URL}/group/categories/`, { headers }),
+          axios.get(`${BASE_URL}/users/api/users/`, { headers }), // Make sure this endpoint is correct
         ]);
-      setOrders(ordersResponse.data.results);
-      setTotalOrders(ordersResponse.data.count);
-      setTotalCount(ordersResponse.data.count || 0);
-      setTotalPages(Math.ceil(ordersResponse.data.count / 10)); // Assuming 10 items per page
+
+      setOrders(ordersResponse.data.results || []);
+      setTotalOrders(ordersResponse.data.count || 0);
+      // setTotalCount(ordersResponse.data.count || 0); // Redundant with totalOrders
+      // setTotalPages(Math.ceil(ordersResponse.data.count / pageSize)); // Calculated in Pagination
 
       setCategories(categoriesResponse.data || []);
-      setDesigners(usersResponse.data || []);
+      setDesigners(usersResponse.data || []); // Ensure this state is used or remove fetch
 
+      // --- Fetch Prices Logic (Keep as is) ---
       const newPrices = {};
       const newReceived = {};
       const newRemainded = {};
       const newDeliveryDate = {};
 
-      await Promise.all(
-        ordersResponse.data.results.map(async (order) => {
-          try {
-            const priceResponse = await axios.get(
-              `${BASE_URL}/group/order-by-price/`,
-              {
-                params: { order: order.id },
-                headers: { Authorization: `Bearer ${token}` },
+      if (ordersResponse.data.results) {
+        await Promise.all(
+          ordersResponse.data.results.map(async (order) => {
+            try {
+              // Consider adding a check if price data is actually needed for the current view/search results
+              const priceResponse = await axios.get(
+                `${BASE_URL}/group/order-by-price/`,
+                {
+                  params: { order: order.id },
+                  headers: { Authorization: `Bearer ${token}` }, // Pass token here too
+                }
+              );
+
+              const data1 = priceResponse.data;
+              if (data1 && data1.length > 0) {
+                newPrices[order.id] = data1[0].price;
+                newReceived[order.id] = data1[0].receive_price;
+                newRemainded[order.id] = data1[0].reminder_price;
+                newDeliveryDate[order.id] = data1[0].delivery_date;
+              } else {
+                // console.warn(`No price data found for order ID: ${order.id}`);
               }
-            );
-
-            const data1 = priceResponse.data;
-            if (data1 && data1.length > 0) {
-              newPrices[order.id] = data1[0].price;
-              newReceived[order.id] = data1[0].receive_price;
-              newRemainded[order.id] = data1[0].reminder_price;
-              newDeliveryDate[order.id] = data1[0].delivery_date;
-            } else {
-              console.warn(`No price data found for order ID: ${order.id}`);
+            } catch (priceError) {
+              // Handle price fetch errors gracefully (e.g., don't block UI)
+              if (priceError.response?.status === 404) {
+                // console.warn(`Price data not found for order ID: ${order.id}`);
+              } else {
+                // console.error(`Error fetching price for order ID: ${order.id}`, priceError);
+              }
+              // Set default/placeholder values if needed
+              newPrices[order.id] = newPrices[order.id] ?? "N/A";
+              newReceived[order.id] = newReceived[order.id] ?? "N/A";
+              newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
+              newDeliveryDate[order.id] = newDeliveryDate[order.id] ?? "N/A";
             }
-          } catch (priceError) {
-            console.error(
-              `Error fetching price for order ID: ${order.id}`,
-              priceError
-            );
-          }
-        })
-      );
-
-      setPrices((prevPrices) => ({ ...prevPrices, ...newPrices }));
-      setReceivedPrices((prevReceived) => ({
-        ...prevReceived,
-        ...newReceived,
-      }));
-      setRemaindedPrices((prevRemainded) => ({
-        ...prevRemainded,
-        ...newRemainded,
-      }));
-      setDDate((prevDDate) => ({ ...prevDDate, ...newDeliveryDate }));
+          })
+        );
+        // Update price states outside the map loop for efficiency
+        setPrices((prevPrices) => ({ ...prevPrices, ...newPrices }));
+        setReceivedPrices((prevReceived) => ({
+          ...prevReceived,
+          ...newReceived,
+        }));
+        setRemaindedPrices((prevRemainded) => ({
+          ...prevRemainded,
+          ...newRemainded,
+        }));
+        setDDate((prevDDate) => ({ ...prevDDate, ...newDeliveryDate }));
+      }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error(
+        "Error fetching data:",
+        error.response?.data || error.message || error
+      );
+      if (error.response?.status === 401) {
+        // Specific handling for unauthorized, maybe try refresh again or logout
+        console.error(
+          "Unauthorized access - token might be invalid or expired."
+        );
+        await refreshAuthToken(); // Attempt refresh again or trigger logout
+      }
+      // Set empty state on error to avoid displaying stale data
+      setOrders([]);
+      setTotalOrders(0);
+      setCategories([]);
+      setDesigners([]);
+      // Optional: Show error message to user using Swal or similar
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    currentPage,
+    pageSize,
+    debouncedSearchTerm,
+    getAuthToken,
+    refreshAuthToken,
+  ]); // Add dependencies
+
+  // --- Event Handlers (Keep existing handlers, add search handler) ---
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    // No need to set page here, the useEffect below handles it
+  };
+
   const handleComplete = async (id) => {
+    // ... (keep existing handleComplete logic)
     try {
       const authToken = decryptData(localStorage.getItem("auth_token"));
       if (!authToken) {
@@ -246,7 +336,7 @@ const TokenOrders = () => {
           icon: "success",
         });
       }
-      fetchData();
+      fetchData(); // Refetch data after completion
     } catch (error) {
       console.error("Error completing order:", error);
       await Swal.fire({
@@ -256,50 +346,55 @@ const TokenOrders = () => {
       });
     }
   };
-  useEffect(() => {
-    fetchData();
-  }, [currentPage, showPrice]);
 
-  useEffect(() => {
-    if (searchTerm) {
-      const results = orders.filter((order) => {
-        const customerName = order.customer_name || "";
-        const orderName = order.order_name || "";
-        const categoryName =
-          categories.find((category) => category.id === order.category)?.name ||
-          "";
-
-        return (
-          customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          orderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          categoryName.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      });
-      setSearchResults(results);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchTerm, orders, categories]);
-
-  const getCategoryName = (categoryId) => {
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category ? category.name : "نامشخص";
-  };
+  const getCategoryName = useCallback(
+    (categoryId) => {
+      const category = categories.find((cat) => cat.id === categoryId);
+      return category ? category.name : "نامشخص";
+    },
+    [categories]
+  ); // Add categories dependency
 
   const handleShowAttribute = (order, status) => {
     setPassedOrder(order);
     setSelectedStatus(status);
+    // setIsModelOpen(true); // This is called in the button's onClick directly
   };
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-  // Show loading message while fetching data
-  if (loading) {
+
+  // --- useEffect Hooks ---
+  useEffect(() => {
+    fetchData();
+    // Dependency array includes fetchData which includes its own dependencies (currentPage, debouncedSearchTerm, etc.)
+  }, [fetchData]);
+
+  // Effect to reset page to 1 when search term changes (debounced)
+  useEffect(() => {
+    // Check specifically if debouncedSearchTerm is defined to avoid triggering on initial mount
+    // and only reset if not already on page 1
+    if (debouncedSearchTerm !== undefined && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm]); // Only depend on the debounced term
+
+  // --- Remove Client-Side Search Effect ---
+  // useEffect(() => {
+  //   if (searchTerm) {
+  //     const results = orders.filter(/* ... */); // This is no longer needed
+  //     setSearchResults(results);
+  //   } else {
+  //     setSearchResults([]);
+  //   }
+  // }, [searchTerm, orders, categories]);
+  // const [searchResults, setSearchResults] = useState([]); // Remove this state
+
+  // --- Loading State ---
+  if (loading && orders.length === 0) {
+    // Show initial loading indicator
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="loader mr-3"></div>
         <span className="text-xl font-semibold">در حال بارگذاری...</span>
-
         <style jsx>{`
           .loader {
             width: 40px;
@@ -309,7 +404,6 @@ const TokenOrders = () => {
             border-radius: 50%;
             animation: spin 1s linear infinite;
           }
-
           @keyframes spin {
             to {
               transform: rotate(360deg);
@@ -321,193 +415,327 @@ const TokenOrders = () => {
   }
 
   return (
-    <div className="mt-8 px-10 ">
+    <div className="mt-8 px-4 md:px-10 pb-10">
+      {" "}
+      {/* Added padding bottom */}
       <h2 className="md:text-2xl text-base text-center font-Ray_black font-bold mb-4">
         لیست سفارشات تکمیلی
       </h2>
-
-      {/* Search Bar */}
-      <SearchBar
-        placeholder="جستجو در سفارشات"
-        value={searchTerm}
-        onChange={handleSearchChange}
-      />
+      {/* --- Search Bar Section (Similar to AddOrder) --- */}
+      <div className="flex items-center justify-center mb-4 gap-x-3">
+        <label
+          htmlFor="orderSearch"
+          className="block text-sm font-semibold whitespace-nowrap"
+        >
+          جستجو:
+        </label>
+        <input
+          type="text"
+          id="orderSearch"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          className="shadow appearance-none border rounded-md w-full md:w-1/2 lg:w-1/3 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          placeholder="نام مشتری، سفارش، کتگوری..."
+        />
+        {searchTerm && ( // Show clear button conditionally
+          <button
+            onClick={() => setSearchTerm("")} // Clear the search term
+            className="focus:outline-none secondry-btn" // Use your button style
+          >
+            پاک کردن
+          </button>
+        )}
+        {/* Optional: Add search icon if desired */}
+        {/* <FaSearch className="text-gray-500 ml-[-30px]" /> */}
+      </div>
+      {/* --- End Search Bar Section --- */}
+      {/* Keep Bill Button as is */}
       {selectedOrders.length > 0 && (
         <button
           onClick={() => setIsTotalModelOpen(true)}
-          className="secondry-btn mt-4"
+          className="secondry-btn my-4" // Added margin
         >
           نمایش بیل انتخاب شده‌ها
         </button>
       )}
-      <center>
-        <div className="overflow-x-scroll lg:overflow-hidden w-[420px] md:w-full rounded-lg">
-          <table className="w-full  rounded-lg border  border-gray-300 shadow-md">
-            <thead className=" ">
-              <tr className="bg-green text-gray-100 text-center">
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  نام مشتری
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5 tfont-semibold text-sm md:text-base">
-                  نام سفارش
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  دسته‌بندی
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  دیزاینر
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  قیمت کل
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  قیمت دریافت شده
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  قیمت باقی‌مانده
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  تاریخ تحویل
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  حالت
-                </th>
-                <th className="border border-gray-300 px-6 py-2.5  font-semibold text-sm md:text-base">
-                  جزئیات
-                </th>
-              </tr>
-            </thead>
-            <tbody className="">
-              {orders && orders.length > 0 ? (
-                orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                  >
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.customer_name || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.order_name || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {getCategoryName(order.category) || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      <td className="border-gray-300 px-6 py-2 text-gray-700">
-                        {order.designer_details.full_name || "Unknown Designer"}
-                      </td>
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {prices[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {receivedPrices[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {remaindedPrices[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {DDate[order.id] || "در حال بارگذاری..."}
-                    </td>
-                    <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      {order.status || "در حال بارگذاری..."}
-                    </td>
-                    <td className="flex items-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
-                      <button
-                        onClick={() => {
-                          handleShowAttribute(order, order.status);
-                          setIsModelOpen(true);
-                        }}
-                        className="secondry-btn"
-                      >
-                        نمایش
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowPrice(true);
-                          setEditingPriceId(order.id);
-                        }}
-                        className=""
-                      >
-                        <FaEdit size={20} className="text-green" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleComplete(order.id);
-                        }}
-                        className="text-green"
-                      >
-                        <FaCheck />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="9" className="border p-3 text-center">
-                    هیچ سفارشی امروز ثبت شده وجود ندارد.
-                  </td> 
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <Pagination
-          currentPage={currentPage}
-          totalOrders={totalOrders}
-          pageSize={pageSize}
-          onPageChange={onPageChange}
-        />
-      </center>
+      {/* Table Section with Loading Overlay */}
+      <div className="relative w-full mx-auto overflow-x-auto lg:overflow-hidden">
+        {/* Loading Overlay (shows during refetch/search) */}
+        {loading && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+            <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+            <span className="ml-2 text-gray-600">در حال بارگذاری...</span>
+            <style jsx>{`
+              .loader {
+                border-top-color: #3b82f6;
+                animation: spinner 1.2s linear infinite;
+              }
+              @keyframes spinner {
+                0% {
+                  transform: rotate(0deg);
+                }
+                100% {
+                  transform: rotate(360deg);
+                }
+              }
+            `}</style>
+          </div>
+        )}
 
-      {/* Popup */}
+        {/* Table */}
+        <center className={`w-full ${loading ? "opacity-50" : ""}`}>
+          <div className="overflow-x-scroll lg:overflow-hidden w-full rounded-lg border border-gray-300 shadow-md">
+            <table className="w-full ">
+              <thead className=" ">
+                <tr className="bg-green text-gray-100 text-center">
+                  {/* Keep table headers as they are */}
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    نام مشتری
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    نام سفارش
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    دسته‌بندی
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    دیزاینر
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    قیمت کل
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    دریافتی
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    باقی‌مانده
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    تاریخ تحویل
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    حالت
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    جزئیات
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="">
+                {/* Render directly from 'orders' state */}
+                {!loading && orders && orders.length > 0
+                  ? orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                      >
+                        {/* Keep table data cells as they are */}
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {order.customer_name || "-"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {order.order_name || "-"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {getCategoryName(order.category) || "-"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {order.designer_details?.full_name || "نامشخص"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {prices[order.id] ?? "N/A"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {receivedPrices[order.id] ?? "N/A"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {remaindedPrices[order.id] ?? "N/A"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {DDate[order.id] ?? "N/A"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          {order.status || "-"}
+                        </td>
+                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
+                          <div className="flex items-center justify-center gap-x-3">
+                            {" "}
+                            {/* Flex container for buttons */}
+                            <button
+                              onClick={() => {
+                                handleShowAttribute(order, order.status);
+                                setIsModelOpen(true);
+                              }}
+                              className="secondry-btn px-2 py-1 text-xs" // Smaller button if needed
+                            >
+                              نمایش
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowPrice(true);
+                                setEditingPriceId(order.id);
+                              }}
+                              className="text-blue-600 hover:text-blue-800" // Example styling
+                            >
+                              <FaEdit size={18} />
+                            </button>
+                            {remaindedPrices[order.id] != null &&
+                              remaindedPrices[order.id] > 0 && ( // Conditionally show checkmark only if there's a remainder > 0
+                                <button
+                                  onClick={() => {
+                                    handleComplete(order.id);
+                                  }}
+                                  className="text-green hover:text-green-700"
+                                >
+                                  <FaCheck size={18} />
+                                </button>
+                              )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  : !loading && ( // Show message only when not loading
+                      <tr>
+                        <td
+                          colSpan="10"
+                          className="border p-4 text-center text-gray-500"
+                        >
+                          {searchTerm
+                            ? "هیچ سفارشی مطابق با جستجوی شما یافت نشد."
+                            : "هیچ سفارشی یافت نشد."}
+                        </td>
+                      </tr>
+                    )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination (Ensure totalOrders is passed correctly) */}
+          <div className="mt-6">
+            <Pagination
+              currentPage={currentPage}
+              totalOrders={totalOrders} // Use totalOrders from state
+              pageSize={pageSize}
+              onPageChange={onPageChange}
+            />
+          </div>
+        </center>
+      </div>
+      {/* --- Modals (Keep Bill and Price Modals as is) --- */}
       {isModelOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsModelOpen(false)}
           ></div>
-
-          {/* Centered Modal */}
-          <div className="fixed inset-0 flex  justify-center z-50">
-            <div
-              id="bill-content"
-              className="bg-opacity-75 h-[210mm] w-[148mm] bg-white p- pb-20 relative"
-            >
-              {/* Close button */}
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+            {" "}
+            {/* Added padding */}
+            <div className="relative bg-white rounded-lg shadow-xl w-[148mm] max-h-[90vh] ">
+              {" "}
+              {/* Max height and scroll */}
+              {/* Close button inside */}
               <button
                 onClick={() => setIsModelOpen(false)}
-                className="absolute top-1/2 -translate-y-1/2 -right-20 border-gray-900 bg-gray-400 rounded-full p-1 h-10 w-10 text-red-800 text-3xl z-50"
+                className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"
+                aria-label="Close modal" // Accessibility
               >
-                ✕
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
-
-              {/* Bill content */}
-              <Bill
-                order={passedOrder}
-                orders={orders.filter((order) =>
-                  selectedOrders.includes(order.id)
-                )}
-              />
-
-              {/* Print Bill button */}
-              <button
-                onClick={printBill}
-                className="absolute -bottom-14 secondry-btn z-50"
-              >
-                چاپ بیل
-              </button>
+              {/* Bill content with ID */}
+              <div id="bill-content" className="p-4">
+                {" "}
+                {/* Adjust padding as needed */}
+                <Bill
+                  order={passedOrder}
+                  orders={orders.filter((order) =>
+                    selectedOrders.includes(order.id)
+                  )} // Pass selected if needed, or just passedOrder
+                />
+              </div>
+              {/* Print button outside the scrollable content, positioned relative to the modal */}
+              <div className="sticky bottom-0 bg-white p-3 border-t text-center">
+                <button onClick={printBill} className="secondry-btn z-50">
+                  چاپ بیل
+                </button>
+              </div>
             </div>
           </div>
         </>
       )}
-      {showPrice && (
-        <div>
-          <Price editingPriceId={editingPriceId} setShowPrice={setShowPrice} />
-        </div>
+      {isTotalModelOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setIsTotalModelOpen(false)}
+          ></div>
+          {/* Centered Modal */}
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+            <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+              {/* Close button */}
+              <button
+                onClick={() => setIsTotalModelOpen(false)}
+                className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"
+                aria-label="Close total bill modal"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+              {/* Total Bill Content */}
+              <div className="p-6">
+                {" "}
+                {/* Add padding */}
+                <BillTotalpage
+                  orders={orders.filter((order) =>
+                    selectedOrders.includes(order.id)
+                  )}
+                  // Pass other necessary props if BillTotalpage requires them
+                />
+              </div>
+              {/* Optional: Add print button for total bill if needed */}
+              {/* <div className="sticky bottom-0 bg-white p-3 border-t text-center">
+                             <button onClick={handlePrintTotalBill} className="secondry-btn">چاپ بیل کلی</button>
+                         </div> */}
+            </div>
+          </div>
+        </>
       )}
+      {showPrice &&
+        editingPriceId && ( // Ensure editingPriceId is set before rendering
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+            <Price
+              editingPriceId={editingPriceId}
+              setShowPrice={setShowPrice}
+              onPriceUpdate={fetchData} // Pass fetchData to refresh after update
+            />
+          </div>
+        )}
     </div>
   );
 };
