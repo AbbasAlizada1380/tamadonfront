@@ -218,10 +218,10 @@ const OrderList = () => {
     try {
       // Send only the necessary data for update, verify API expects this format
       const payload = {
-        // Include fields that can be edited, e.g., attributes
-        attributes: editingData.attributes,
-        // Potentially other fields like description if they are editable
-        // description: editingData.description
+        ...passedOrder,
+        attributes: {
+          ...(editingData.attributes || {}),
+        },
       };
 
       const response = await axios.put(
@@ -859,14 +859,18 @@ const OrderList = () => {
       )}
 
       {/* Keep original View/Edit Details Modal */}
-       {isViewModelOpen && passedOrder && (
+      {/* View/Edit Details Modal */}
+      {isViewModelOpen && passedOrder && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full">
             <h3 className="text-xl font-bold mb-4 text-gray-800">
               {isEditing ? "ویرایش سفارش" : "اطلاعات سفارش"}
             </h3>
             <div className="bg-gray-100 p-4 rounded overflow-auto text-sm space-y-2">
-              {Object.entries(passedOrder.attributes).map(([key, value]) => (
+              {/* Map editingData.attributes instead of passedOrder.attributes */}
+              {Object.entries(
+                isEditing ? editingData.attributes : passedOrder.attributes
+              ).map(([key, value]) => (
                 <div
                   key={key}
                   className="flex justify-between items-center border-b border-gray-300 pb-2"
@@ -893,22 +897,31 @@ const OrderList = () => {
                 </div>
               ))}
 
+              {/* Description Field */}
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
                 <span className="font-medium text-gray-700">توضیحات</span>
-                <span className="border rounded p-1 text-gray-900 w-1/2">
-                  {passedOrder.description}
-                </span>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editingData.description || ""}
+                    onChange={(e) =>
+                      setEditingData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    className="border rounded p-1 text-gray-900 w-1/2"
+                  />
+                ) : (
+                  <span className="text-gray-900">
+                    {passedOrder.description || "بدون توضیحات"}
+                  </span>
+                )}
               </div>
             </div>
 
             <div className="flex gap-x-5 justify-center mt-4">
-              <button
-                onClick={() => {
-                  handleClosePopup();
-                  setIsEditing(false);
-                }}
-                className="tertiary-btn"
-              >
+              <button onClick={handleClosePopup} className="tertiary-btn">
                 بستن
               </button>
 

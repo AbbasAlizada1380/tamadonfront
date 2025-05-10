@@ -109,11 +109,8 @@ const Attribute = () => {
         // Add a new attribute
         response = await axios.post(`${BASE_URL}/group/attribute-types/`, data);
 
-        if (response.status === 201) {
           successMessage = "اطلاعات با موفقیت ثبت شد.";
-        } else {
-          throw new Error("مشکلی در ارسال اطلاعات وجود دارد.");
-        }
+        
       }
 
       // Show success Swal
@@ -130,12 +127,6 @@ const Attribute = () => {
       setAttribute("");
       setType("");
       setEditingAttributeId(null);
-
-      // Refresh the list of attributes
-      const fetchAttributes = await axios.get(
-        `${BASE_URL}/group/category/attribute/${selectedCategory}`
-      );
-      setShownAttributes(fetchAttributes.data.attribute_types);
     } catch (error) {
       console.error("Error sending data:", error);
 

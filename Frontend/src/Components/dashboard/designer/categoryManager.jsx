@@ -147,7 +147,7 @@ const CategoryManagement = () => {
     if (confirmDelete.isConfirmed) {
       try {
         const response = await axios.delete(
-          `${BASE_URL}/group/categories/${id}/delete/`
+          `${BASE_URL}/group/categories/${id}/`
         );
         if (response.status === 204) {
           Swal.fire({
