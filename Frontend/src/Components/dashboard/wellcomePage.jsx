@@ -29,7 +29,7 @@ const AdminDashboard = () => {
       {role == "1" && <DesignerMainPage />}
       {role == "2" && <ReceptionMainPage />}
       {role == "3" && <SuperDesignerMainPage />}
-      {role == "4" && <PrinterMainPage />}
+      {["4", "6", "7", "8", "9", "10"].includes(role) && <PrinterMainPage />}
       {role == "5" && <DeliverMainPage />}
     </div>
   );

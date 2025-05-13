@@ -99,8 +99,6 @@ const ReceivedList = () => {
           }
         );
         setOrders(response.data.results);
-        console.log(response.data.results);
-
         setTotalOrders(response.data.count);
       } catch (err) {
         console.error("Error fetching List", err);

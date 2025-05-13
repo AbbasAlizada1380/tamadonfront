@@ -76,7 +76,6 @@ const Delivery = () => {
       );
       setOrders(response.data.results);
       setTotalOrders(response.data.count);
-      console.log(response);
     } catch (err) {
       console.error("Error fetching List", err);
       setOrders([]); // Ensure orders is always an array
