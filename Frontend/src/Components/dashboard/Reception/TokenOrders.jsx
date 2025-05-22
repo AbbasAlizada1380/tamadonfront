@@ -40,6 +40,7 @@ const TokenOrders = () => {
   // const [totalPages, setTotalPages] = useState(1); // Can be calculated from totalOrders and pageSize
   const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
+  const [isClicked, setIsClicked] = useState(false);
 
   // --- Search State ---
   const [searchTerm, setSearchTerm] = useState(""); // Raw search input
@@ -65,7 +66,9 @@ const TokenOrders = () => {
       return null;
     }
   }, []); // Empty dependency array as secretKey is constant
-
+  const handleClick = () => {
+    setIsClicked(!isClicked);
+  };
   // --- Helper Functions (Keep printBill, getAuthToken, isTokenExpired, refreshAuthToken as is) ---
   const printBill = async () => {
     // ... (keep existing printBill logic)
@@ -516,96 +519,85 @@ const TokenOrders = () => {
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     حالت
                   </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                  <th
+                    onClick={() => handleClick()}
+                    className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap"
+                  >
                     جزئیات
                   </th>
                 </tr>
               </thead>
               <tbody className="">
-                {/* Render directly from 'orders' state */}
-                {!loading && orders && orders.length > 0
-                  ? orders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                      >
-                        {/* Keep table data cells as they are */}
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.customer_name || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.order_name || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {getCategoryName(order.category) || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.designer_details?.full_name || "نامشخص"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {prices[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {receivedPrices[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {remaindedPrices[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {DDate[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.status || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          <div className="flex items-center justify-center gap-x-3">
-                            {" "}
-                            {/* Flex container for buttons */}
-                            <button
-                              onClick={() => {
-                                handleShowAttribute(order, order.status);
-                                setIsModelOpen(true);
-                              }}
-                              className="secondry-btn px-2 py-1 text-xs" // Smaller button if needed
-                            >
-                              نمایش
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowPrice(true);
-                                setEditingPriceId(order.id);
-                              }}
-                              className="text-blue-600 hover:text-blue-800" // Example styling
-                            >
-                              <FaEdit size={18} />
-                            </button>
-                            {remaindedPrices[order.id] != null &&
-                              remaindedPrices[order.id] > 0 && ( // Conditionally show checkmark only if there's a remainder > 0
-                                <button
-                                  onClick={() => {
-                                    handleComplete(order.id);
-                                  }}
-                                  className="text-green hover:text-green-700"
-                                >
-                                  <FaCheck size={18} />
-                                </button>
-                              )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  : !loading && ( // Show message only when not loading
-                      <tr>
-                        <td
-                          colSpan="10"
-                          className="border p-4 text-center text-gray-500"
+                {orders && orders.length > 0 ? (
+                  (isClicked ? orders.slice(0, 5) : orders).map((order) => (
+                    <tr
+                      key={order.id}
+                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                    >
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.customer_name || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.order_name || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {getCategoryName(order.category) ||
+                          "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.designer_details.full_name || "Unknown Designer"}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {prices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {receivedPrices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {remaindedPrices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {DDate[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.status || "در حال بارگذاری..."}
+                      </td>
+                      <td className="flex items-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        <button
+                          onClick={() => {
+                            handleShowAttribute(order, order.status);
+                            setIsModelOpen(true);
+                          }}
+                          className="secondry-btn"
                         >
-                          {searchTerm
-                            ? "هیچ سفارشی مطابق با جستجوی شما یافت نشد."
-                            : "هیچ سفارشی یافت نشد."}
-                        </td>
-                      </tr>
-                    )}
+                          نمایش
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowPrice(true);
+                            setEditingPriceId(order.id);
+                          }}
+                        >
+                          <FaEdit size={20} className="text-green" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleComplete(order.id);
+                          }}
+                          className="text-green"
+                        >
+                          <FaCheck />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="9" className="border p-3 text-center">
+                      هیچ سفارشی با وضعیت 'گرفته شده' وجود ندارد.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

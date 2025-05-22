@@ -44,6 +44,7 @@ const PTokenOrders = () => {
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API
   // const [searchResults, setSearchResults] = useState([]); // Removed, data comes from server
 
+  const [isClicked, setIsClicked] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -64,7 +65,9 @@ const PTokenOrders = () => {
       return null;
     }
   }, []); // secretKey is constant
-
+  const handleClick = () => {
+    setIsClicked(!isClicked);
+  };
   const printBill = async () => {
     const element = document.getElementById("bill-content");
     if (!element) {
@@ -433,98 +436,85 @@ const PTokenOrders = () => {
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     حالت
                   </th>
-                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                  <th
+                    onClick={() => handleClick()}
+                    className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap"
+                  >
                     جزئیات
                   </th>
                 </tr>
               </thead>
               <tbody className="">
-                {/* Render directly from 'orders' state (server-filtered data) */}
-                {!loading && orders && orders.length > 0
-                  ? orders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                      >
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.customer_name || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.order_name || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {getCategoryName(order.category) || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.designer_details?.full_name || "نامشخص"}{" "}
-                          {/* Corrected nested <td> from original */}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {prices[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {receivedPrices[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {remaindedPrices[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {DDate[order.id] ?? "N/A"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {order.status || "-"}
-                        </td>
-                        <td className="border-gray-300 px-4 py-2 text-gray-700 text-sm md:text-base">
-                          {" "}
-                          {/* Adjusted padding for consistency */}
-                          <div className="flex items-center justify-center gap-x-3">
-                            {" "}
-                            {/* Flex container from TokenOrders for button alignment */}
-                            <button
-                              onClick={() => {
-                                handleShowAttribute(order, order.status);
-                                setIsModelOpen(true);
-                              }}
-                              className="secondry-btn px-2 py-1 text-xs" // Smaller button
-                            >
-                              نمایش
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowPrice(true);
-                                setEditingPriceId(order.id);
-                              }}
-                              className="text-blue-600 hover:text-blue-800" // Example styling
-                            >
-                              <FaEdit size={18} />
-                            </button>
-                            {remaindedPrices[order.id] != null &&
-                              remaindedPrices[order.id] > 0 && (
-                                <button
-                                  onClick={() => {
-                                    handleComplete(order.id);
-                                  }}
-                                  className="text-green hover:text-green-700" // Example styling
-                                >
-                                  <FaCheck size={18} />
-                                </button>
-                              )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  : !loading && (
-                      <tr>
-                        <td
-                          colSpan="10"
-                          className="border p-4 text-center text-gray-500"
+                {orders && orders.length > 0 ? (
+                  (isClicked ? orders.slice(0, 5) : orders).map((order) => (
+                    <tr
+                      key={order.id}
+                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                    >
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.customer_name || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.order_name || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {getCategoryName(order.category) ||
+                          "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.designer_details.full_name || "Unknown Designer"}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {prices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {receivedPrices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {remaindedPrices[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {DDate[order.id] || "در حال بارگذاری..."}
+                      </td>
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {order.status || "در حال بارگذاری..."}
+                      </td>
+                      <td className="flex items-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        <button
+                          onClick={() => {
+                            handleShowAttribute(order, order.status);
+                            setIsModelOpen(true);
+                          }}
+                          className="secondry-btn"
                         >
-                          {searchTerm
-                            ? "هیچ سفارشی مطابق با جستجوی شما یافت نشد."
-                            : "هیچ سفارشی یافت نشد."}
-                        </td>
-                      </tr>
-                    )}
+                          نمایش
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowPrice(true);
+                            setEditingPriceId(order.id);
+                          }}
+                        >
+                          <FaEdit size={20} className="text-green" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleComplete(order.id);
+                          }}
+                          className="text-green"
+                        >
+                          <FaCheck />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="9" className="border p-3 text-center">
+                      هیچ سفارشی با وضعیت 'گرفته شده' وجود ندارد.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
