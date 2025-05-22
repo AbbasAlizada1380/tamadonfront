@@ -626,7 +626,7 @@ const PTokenOrders = () => {
             <Price
               editingPriceId={editingPriceId}
               setShowPrice={setShowPrice}
-              onPriceUpdate={fetchData} // Pass fetchData to refresh after update
+              onPriceUpdate={fetchData} 
             />
           </div>
         )}
