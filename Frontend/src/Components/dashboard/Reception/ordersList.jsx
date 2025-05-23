@@ -448,6 +448,7 @@ const OrderList = () => {
       receive_price: convertToEnglishNumbers(modalData.receive_price),
       delivery_date: modalData.deliveryDate, // Already formatted as YYYY-MM-DD
       order: selectedOrder, // The ID of the order
+      reception: decryptData(localStorage.getItem("id")),
     };
 
     try {
@@ -477,6 +478,8 @@ const OrderList = () => {
       }
 
       // 2. Create the price record
+      console.log(pricePayload);
+      
       const priceResponse = await axios.post(
         `${BASE_URL}/group/reception-orders/`, // Endpoint for creating price/reception info
         pricePayload,

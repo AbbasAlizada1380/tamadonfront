@@ -44,7 +44,7 @@ const PTokenOrders = () => {
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API
   // const [searchResults, setSearchResults] = useState([]); // Removed, data comes from server
 
-  const [isClicked, setIsClicked] = useState(false);
+  const [isClicked, setIsClicked] = useState(true);
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
