@@ -156,29 +156,49 @@ const ColorFullList = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                    >
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.customer_name}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.order_name}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {categories.find((cat) => cat.id === order.category)
-                          ?.category_list || "نامشخص"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.designer_details?.full_name || "نامشخص"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.status}
+                  {loading ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        در حال بارگذاری...
                       </td>
                     </tr>
-                  ))}
+                  ) : error ? (
+                    <tr>
+                      <td colSpan="5" className="text-center text-red-500 py-4">
+                        {error}
+                      </td>
+                    </tr>
+                  ) : orders.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        سفارشی یافت نشد.
+                      </td>
+                    </tr>
+                  ) : (
+                    orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                      >
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.customer_name}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.order_name}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {categories.find((cat) => cat.id === order.category)
+                            ?.category_list || "نامشخص"}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.designer_details?.full_name || "نامشخص"}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.status}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

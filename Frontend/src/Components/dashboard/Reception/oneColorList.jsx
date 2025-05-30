@@ -4,7 +4,7 @@ import axios from "axios";
 import Pagination from "../../../Utilities/Pagination"; // Assuming this path is correct
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-const ColorFullList = () => {
+const OneColorList = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
@@ -113,7 +113,7 @@ const ColorFullList = () => {
 
   return (
     <div className="p-4">
-      {/* Main Page Title (will be hidden on print) */}
+      {/* Print Button */}
       <button
         onClick={handlePrint}
         className="no-print mb-4 ml-auto block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
@@ -121,8 +121,12 @@ const ColorFullList = () => {
         چاپ این صفحه
       </button>
       <div id="printableTableArea">
+        {" "}
+        {/* Div to define printable content */}
         <h2 className="text-xl font-bold mb-4 text-center">
-          لیست سفارشات تک رنگ (WC) - صفحه {currentPage}
+          {" "}
+          {/* Centered title for print */}
+          لیست سفارشات رنگی (WC) - صفحه {currentPage}
         </h2>
         {loading && orders.length > 0 && (
           <p className="p-4 text-center no-print">بارگذاری صفحه جدید...</p>
@@ -133,9 +137,8 @@ const ColorFullList = () => {
         {orders.length === 0 && !loading && !error ? (
           <p className="text-center">سفارشی یافت نشد.</p>
         ) : (
-          (!loading || orders.length > 0) && ( // Render table if not loading OR if orders are already loaded
+          (!loading || orders.length > 0) && ( // Render table if not loading or if orders are already loaded
             <div className="overflow-x-auto">
-              {" "}
               <table className="w-full">
                 <thead>
                   <tr className="bg-green text-gray-100 text-center">
@@ -155,29 +158,49 @@ const ColorFullList = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                    >
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.customer_name}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.order_name}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {categories.find((cat) => cat.id === order.category)
-                          ?.category_list || "نامشخص"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.designer_details?.full_name || "نامشخص"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.status}
+                  {loading ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        در حال بارگذاری...
                       </td>
                     </tr>
-                  ))}
+                  ) : error ? (
+                    <tr>
+                      <td colSpan="5" className="text-center text-red-500 py-4">
+                        {error}
+                      </td>
+                    </tr>
+                  ) : orders.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        سفارشی یافت نشد.
+                      </td>
+                    </tr>
+                  ) : (
+                    orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                      >
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.customer_name}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.order_name}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {categories.find((cat) => cat.id === order.category)
+                            ?.category_list || "نامشخص"}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.designer_details?.full_name || "نامشخص"}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.status}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -185,12 +208,13 @@ const ColorFullList = () => {
         )}
       </div>{" "}
       {/* End of printableTableArea */}
-      {/* Pagination (hidden on print) */}
       {totalOrders > pageSize && !loading && orders.length > 0 && (
         <div className="mt-4 flex justify-center no-print">
+          {" "}
+          {/* Added no-print to pagination */}
           <Pagination
             currentPage={currentPage}
-            totalOrders={totalOrders} // Make sure Pagination component expects this prop name
+            totalItems={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
             pageSize={pageSize}
             onPageChange={handlePageChange}
           />
@@ -200,4 +224,4 @@ const ColorFullList = () => {
   );
 };
 
-export default ColorFullList;
+export default OneColorList;
