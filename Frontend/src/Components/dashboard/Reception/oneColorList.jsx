@@ -251,10 +251,10 @@ const OneColorList = () => {
           {/* Added no-print to pagination */}
           <Pagination
             currentPage={currentPage}
-            totalItems={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
+            totalOrders={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
             pageSize={pageSize}
             onPageChange={handlePageChange}
-          />
+          />          
         </div>
       )}
     </div>
