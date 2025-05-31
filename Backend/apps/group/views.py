@@ -37,7 +37,7 @@ from apps.group.permissions import IsSuperDesignerOrReception
 from .models import Category, Order, ReceptionOrder, AttributeType, AttributeValue
 from .serializers import (
     CategorySerializer,
-    AttributeTypeSerializer,
+    AttributeTypeSerializer, 
     AttributeValueSerializer,
     OrderSerializer, 
     ReceptionOrderSerializer,
