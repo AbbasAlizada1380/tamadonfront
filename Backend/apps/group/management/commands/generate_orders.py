@@ -18,17 +18,23 @@ class Command(BaseCommand):
         users = User.objects.all()
 
         # Create 1000 orders
-        for _ in range(50):
+        for _ in range(30):
             order_name = fake.word()  # Random word for order name
             customer_name = fake.name()  # Random name for customer
             description = fake.text()  # Random description text
             designer = random.choice(users)  # Random user for designer
             category = random.choice(categories)  # Random category
             status = random.choice(
+<<<<<<< HEAD
                 ["Head_of_designers"]
             )  # Random status
 
             # Create and save the Order instance
+=======
+                [
+                "Delivery" ]
+            )
+>>>>>>> 7506c2346a0f6097820fcda0198985b178348839
             order = Order(
                 order_name=order_name,
                 customer_name=customer_name,

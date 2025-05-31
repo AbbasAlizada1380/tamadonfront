@@ -163,7 +163,6 @@ const TokenOrders = () => {
    try {
      const response = await axios.get(`${BASE_URL}/users/api/users/`);
      setUsers(response.data);
-     console.log(response.data);
    } catch (error) {
      console.error("Error fetching users:", error);
    }
@@ -244,8 +243,6 @@ const TokenOrders = () => {
               );
 
               const data1 = priceResponse.data;
-              console.log(priceResponse.data);
-
               if (data1 && data1.length > 0) {
                 newPrices[order.id] = data1[0].price;
                 newReceived[order.id] = data1[0].receive_price;
@@ -543,7 +540,7 @@ const TokenOrders = () => {
                     حالت
                   </th>
                   <th
-                    onClick={() => handleClick()}
+                    // onClick={() => handleClick()}
                     className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap"
                   >
                     جزئیات

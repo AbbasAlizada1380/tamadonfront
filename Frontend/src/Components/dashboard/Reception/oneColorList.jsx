@@ -8,6 +8,9 @@ const OneColorList = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
+  const [orderPrice, setOrderPrice] = useState([]);
+  const [users, setUsers] = useState([]);
+
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -36,7 +39,14 @@ const OneColorList = () => {
     },
     [secretKey]
   );
-
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/users/api/users/`);
+      setUsers(response.data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
   const fetchOrders = useCallback(
     async (page) => {
       setLoading(true);
@@ -48,18 +58,52 @@ const OneColorList = () => {
         setTotalOrders(0);
         return;
       }
+
       try {
         const response = await axios.get(
-          `${BASE_URL}/group/orders/reception_list/today/?category__category_list=WC&pagenum=${page}&page_size=${pageSize}`, // WC category
+          `${BASE_URL}/group/orders/reception_list/today/?category__category_list=WC&pagenum=${page}&page_size=${pageSize}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }
         );
-        setOrders(response.data.results || []);
+
+        const ordersData = response.data.results || [];
+        setOrders(ordersData);
         setTotalOrders(response.data.count || 0);
         setError("");
+
+        // Initialize temp containers
+        const newPrices = {};
+
+        // Fetch prices for each order
+        await Promise.all(
+          ordersData.map(async (order) => {
+            try {
+              const priceResponse = await axios.get(
+                `${BASE_URL}/group/order-by-price/`,
+                {
+                  params: { order: order.id },
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+
+              const priceData = priceResponse.data?.[0]; // Assuming it's an array
+              if (priceData) {
+                newPrices[order.id] = priceData;
+              }
+            } catch (priceError) {
+              console.error(
+                `خطا در دریافت قیمت برای سفارش ${order.id}:`,
+                priceError
+              );
+            }
+          })
+        );
+
+        // Update state once after all fetches
+        setOrderPrice((prev) => ({ ...prev, ...newPrices }));
       } catch (err) {
         console.error("خطا در دریافت اطلاعات:", err);
         setError("دریافت اطلاعات ناموفق بود.");
@@ -94,6 +138,7 @@ const OneColorList = () => {
   useEffect(() => {
     fetchOrders(currentPage);
     fetchCategories();
+    fetchUsers();
   }, [currentPage, fetchOrders, fetchCategories]);
 
   const handlePageChange = (page) => {
@@ -104,10 +149,8 @@ const OneColorList = () => {
     window.print();
   };
 
-  // Initial loading state
   if (loading && orders.length === 0)
     return <p className="p-4">در حال بارگذاری...</p>;
-  // Initial error state
   if (error && orders.length === 0 && !loading)
     return <p className="p-4 text-red-500">{error}</p>;
 
@@ -154,29 +197,13 @@ const OneColorList = () => {
                     <th className="border border-gray-300 px-4 py-2">
                       دیزاینر
                     </th>
-                    <th className="border border-gray-300 px-4 py-2">حالت</th>
+                    <th className="border border-gray-300 px-4 py-2">
+                      تاریخ تحویل دهی
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan="5" className="text-center py-4">
-                        در حال بارگذاری...
-                      </td>
-                    </tr>
-                  ) : error ? (
-                    <tr>
-                      <td colSpan="5" className="text-center text-red-500 py-4">
-                        {error}
-                      </td>
-                    </tr>
-                  ) : orders.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="text-center py-4">
-                        سفارشی یافت نشد.
-                      </td>
-                    </tr>
-                  ) : (
+                  {orders.length > 0 ? (
                     orders.map((order) => (
                       <tr
                         key={order.id}
@@ -196,10 +223,20 @@ const OneColorList = () => {
                           {order.designer_details?.full_name || "نامشخص"}
                         </td>
                         <td className="border border-gray-300 px-4 py-2">
-                          {order.status}
+                          {orderPrice[order.id]?.delivery_date || "نامشخص"}
                         </td>
                       </tr>
                     ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        {error ? (
+                          <span className="text-red-500">{error}</span>
+                        ) : (
+                          "سفارشی یافت نشد."
+                        )}
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -214,10 +251,10 @@ const OneColorList = () => {
           {/* Added no-print to pagination */}
           <Pagination
             currentPage={currentPage}
-            totalItems={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
+            totalOrders={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
             pageSize={pageSize}
             onPageChange={handlePageChange}
-          />
+          />          
         </div>
       )}
     </div>
