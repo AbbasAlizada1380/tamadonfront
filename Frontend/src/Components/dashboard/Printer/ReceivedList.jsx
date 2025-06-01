@@ -65,7 +65,7 @@ const ReceivedList = () => {
   const pageSize = 20;
   const [userRole, setUserRole] = useState(getInitialUserRole());
   const [loading, setLoading] = useState(true);
-  console.log(orderDetails);
+  // console.log(orderDetails); // You can keep or remove this as needed
 
   const [inputFilterDate, setInputFilterDate] = useState("");
   const [appliedFilterDate, setAppliedFilterDate] = useState("");
@@ -93,7 +93,7 @@ const ReceivedList = () => {
     } catch (error) {
       console.error("Error fetching users:", error);
     }
-  }, [BASE_URL]);
+  }, [BASE_URL]); // Removed BASE_URL from dependency array as it's not expected to change, but can be kept if desired
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -102,7 +102,7 @@ const ReceivedList = () => {
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
-  }, [BASE_URL]);
+  }, [BASE_URL]); // Same as above
 
   useEffect(() => {
     fetchUsers();
@@ -140,9 +140,21 @@ const ReceivedList = () => {
         if (search) {
           url += `&search=${encodeURIComponent(search)}`;
         }
+
+        // --- DATE FILTERING LOGIC ---
         if (filterDate) {
+          // filterDate here is the appliedFilterDate
+          // IMPORTANT: Ensure your backend expects the query parameter 'date'
+          // and the format 'YYYY-MM-DD' (which <input type="date"> provides).
+          // If your backend expects a different parameter name (e.g., 'order_date'), change 'date' below.
+          // If it expects a different format, you'll need to convert filterDate before appending.
           url += `&date=${filterDate}`;
         }
+        // --- END DATE FILTERING LOGIC ---
+
+        // --- ADD THIS CONSOLE.LOG TO DEBUG THE URL ---
+        console.log("Requesting URL for orders:", url);
+        // --- You should see something like: ...&date=2023-11-21 if a date is applied ---
 
         const response = await axios.get(url, {
           headers: {
@@ -150,7 +162,7 @@ const ReceivedList = () => {
             "Content-Type": "application/json",
           },
         });
-        console.log(response);
+        // console.log("API Response for orders:", response); // Optional: log the full response
 
         setOrders(response.data.results || []);
         setTotalOrders(response.data.count || 0);
@@ -162,7 +174,7 @@ const ReceivedList = () => {
         setLoading(false);
       }
     },
-    [BASE_URL, userRole, decryptData, roles, pageSize]
+    [BASE_URL, userRole, decryptData, roles, pageSize] // Dependencies for useCallback
   );
 
   const getDetails = useCallback(
@@ -205,29 +217,23 @@ const ReceivedList = () => {
     }
   };
 
-  // START: ADDED FUNCTION TO FORMAT TIME
   const formatTime = (dateString) => {
     if (!dateString) {
-      return null; // Return null if no date string is provided
+      return null;
     }
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
-        // console.warn("formatTime received an invalid date string:", dateString);
-        return null; // Return null for invalid dates
+        return null;
       }
       const hours = date.getHours().toString().padStart(2, "0");
       const minutes = date.getMinutes().toString().padStart(2, "0");
-      // You can also add seconds if needed:
-      // const seconds = date.getSeconds().toString().padStart(2, "0");
-      // return `${hours}:${minutes}:${seconds}`;
       return `${hours}:${minutes}`;
     } catch (error) {
       console.error("Error in formatTime:", error);
-      return null; // Return null on error
+      return null;
     }
   };
-  // END: ADDED FUNCTION TO FORMAT TIME
 
   const handleAdd = useCallback(
     async (order) => {
@@ -299,7 +305,7 @@ const ReceivedList = () => {
       BASE_URL,
       categories,
       decryptData,
-      getTakenList,
+      getTakenList, // getTakenList is stable due to its own useCallback
       currentPage,
       debouncedSearchTerm,
       appliedFilterDate,
@@ -311,42 +317,44 @@ const ReceivedList = () => {
   }, []);
 
   const handleApplyDateFilter = useCallback(() => {
-    setAppliedFilterDate(inputFilterDate);
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
-  }, [inputFilterDate, currentPage]);
+    setAppliedFilterDate(inputFilterDate); // This will trigger the useEffect below
+    // No need to call getTakenList here directly, useEffect will handle it
+    // setCurrentPage(1); // Reset to page 1 when filter is applied - this will be handled by the other useEffect
+  }, [inputFilterDate]); // Dependency: inputFilterDate
 
   const handleClearDateFilter = useCallback(() => {
     setInputFilterDate("");
-    setAppliedFilterDate("");
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
-  }, [currentPage]);
+    setAppliedFilterDate(""); // This will trigger the useEffect below
+    // setCurrentPage(1); // Reset to page 1 - this will be handled by the other useEffect
+  }, []); // No dependencies needed for clearing
 
+  // Effect for fetching data when page, search term, userRole, or APPLIED DATE changes
   useEffect(() => {
     if (typeof userRole === "number") {
+      // The getTakenList function itself is memoized by useCallback.
+      // appliedFilterDate changing will trigger this effect.
       getTakenList(currentPage, debouncedSearchTerm, appliedFilterDate);
     }
   }, [
     currentPage,
     debouncedSearchTerm,
     userRole,
-    getTakenList,
+    getTakenList, // Add getTakenList here as it's a dependency
     appliedFilterDate,
   ]);
 
+  // Effect to reset page to 1 when debouncedSearchTerm or appliedFilterDate changes
   const firstMountRef = useRef(true);
   useEffect(() => {
     if (firstMountRef.current) {
       firstMountRef.current = false;
       return;
     }
+    // Only reset if the current page is not already 1
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [debouncedSearchTerm, appliedFilterDate]);
+  }, [debouncedSearchTerm, appliedFilterDate]); // No currentPage dependency here to avoid loops
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -376,12 +384,12 @@ const ReceivedList = () => {
         setUserRole(null);
       }
     };
-    handleStorageChange();
+    handleStorageChange(); // Initial check
     window.addEventListener("storage", handleStorageChange);
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [decryptData, getInitialUserRole]);
+  }, [decryptData]); // Removed getInitialUserRole, not needed here as decryptData covers it
 
   const handleSearchChange = useCallback((e) => {
     setSearchTerm(e.target.value);
@@ -391,7 +399,13 @@ const ReceivedList = () => {
     setCurrentPage(page);
   }, []);
 
-  if (loading && orders.length === 0) {
+  if (
+    loading &&
+    orders.length === 0 &&
+    !appliedFilterDate &&
+    !debouncedSearchTerm
+  ) {
+    // Avoid showing loading if it's just an empty filter result
     return (
       <div className="flex justify-center items-center h-screen">
         <div>Loading...</div>
@@ -531,7 +545,7 @@ const ReceivedList = () => {
                       </button>
                       <button
                         onClick={() => {
-                          setOrderDetails(order);
+                          setOrderDetails(order); // This is correct for setting the details for the modal
                           getDetails(order.id);
                         }}
                         className="secondry-btn"
@@ -581,8 +595,6 @@ const ReceivedList = () => {
                   </span>
                 </div>
               )}
-
-              {/* START: MODIFIED DATE AND TIME DISPLAY */}
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
                 <span className="font-medium text-gray-700">
                   تاریخ و زمان اخذ:
@@ -591,32 +603,19 @@ const ReceivedList = () => {
                   {(() => {
                     const dateValue = orderDetails.created_at;
                     if (!dateValue) return "نامشخص";
-
                     const shamsiDateText = convertToHijriShamsi(dateValue);
-                    const timeText = formatTime(dateValue); // Use the new formatTime function
-
-                    // Check if date conversion itself resulted in an error string
+                    const timeText = formatTime(dateValue);
                     const dateError =
                       shamsiDateText === "N/A" ||
                       shamsiDateText.includes("نامعتبر") ||
                       shamsiDateText.includes("خطا");
-
-                    if (dateError) {
-                      return shamsiDateText; // Show only the date error
-                    }
-
-                    if (timeText) {
-                      // If timeText is not null (i.e., successfully formatted)
-                      return `${shamsiDateText} ساعت ${timeText}`;
-                    } else {
-                      // If time formatting failed or returned null, just show the date
-                      return shamsiDateText;
-                    }
+                    if (dateError) return shamsiDateText;
+                    return timeText
+                      ? `${shamsiDateText} ساعت ${timeText}`
+                      : shamsiDateText;
                   })()}
                 </span>
               </div>
-              {/* END: MODIFIED DATE AND TIME DISPLAY */}
-
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
                 <span className="font-medium text-gray-700">تاریخ تحویل:</span>
                 <span className="text-gray-900">
@@ -624,7 +623,6 @@ const ReceivedList = () => {
                 </span>
               </div>
             </div>
-
             <div className="flex justify-center mt-5 items-center w-full">
               <button onClick={handleClosePopup} className="tertiary-btn">
                 بستن
