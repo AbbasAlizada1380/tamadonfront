@@ -65,11 +65,9 @@ const ReceivedList = () => {
   const pageSize = 20;
   const [userRole, setUserRole] = useState(getInitialUserRole());
   const [loading, setLoading] = useState(true);
+  // console.log(orderDetails); // You can keep or remove this as needed
 
-  // State for single date filter input
-  const [inputFilterDate, setInputFilterDate] = useState(""); // YYYY-MM-DD
-
-  // State for applied date filter (used in API call)
+  const [inputFilterDate, setInputFilterDate] = useState("");
   const [appliedFilterDate, setAppliedFilterDate] = useState("");
 
   const roles = useMemo(
@@ -95,7 +93,7 @@ const ReceivedList = () => {
     } catch (error) {
       console.error("Error fetching users:", error);
     }
-  }, [BASE_URL]);
+  }, [BASE_URL]); // Removed BASE_URL from dependency array as it's not expected to change, but can be kept if desired
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -104,7 +102,7 @@ const ReceivedList = () => {
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
-  }, [BASE_URL]);
+  }, [BASE_URL]); // Same as above
 
   useEffect(() => {
     fetchUsers();
@@ -113,7 +111,6 @@ const ReceivedList = () => {
 
   const getTakenList = useCallback(
     async (page, search = "", filterDate = "") => {
-      // Renamed parameter
       if (typeof userRole !== "number") {
         setLoading(false);
         return;
@@ -143,11 +140,21 @@ const ReceivedList = () => {
         if (search) {
           url += `&search=${encodeURIComponent(search)}`;
         }
-        // Add single date filter to the URL if it's set
-        // Backend should expect 'YYYY-MM-DD' and query param 'date'
+
+        // --- DATE FILTERING LOGIC ---
         if (filterDate) {
-          url += `&date=${filterDate}`; // Use 'date' query parameter
+          // filterDate here is the appliedFilterDate
+          // IMPORTANT: Ensure your backend expects the query parameter 'date'
+          // and the format 'YYYY-MM-DD' (which <input type="date"> provides).
+          // If your backend expects a different parameter name (e.g., 'order_date'), change 'date' below.
+          // If it expects a different format, you'll need to convert filterDate before appending.
+          url += `&date=${filterDate}`;
         }
+        // --- END DATE FILTERING LOGIC ---
+
+        // --- ADD THIS CONSOLE.LOG TO DEBUG THE URL ---
+        console.log("Requesting URL for orders:", url);
+        // --- You should see something like: ...&date=2023-11-21 if a date is applied ---
 
         const response = await axios.get(url, {
           headers: {
@@ -155,8 +162,8 @@ const ReceivedList = () => {
             "Content-Type": "application/json",
           },
         });
-        console.log(response);
-        
+        // console.log("API Response for orders:", response); // Optional: log the full response
+
         setOrders(response.data.results || []);
         setTotalOrders(response.data.count || 0);
       } catch (err) {
@@ -167,7 +174,7 @@ const ReceivedList = () => {
         setLoading(false);
       }
     },
-    [BASE_URL, userRole, decryptData, roles, pageSize]
+    [BASE_URL, userRole, decryptData, roles, pageSize] // Dependencies for useCallback
   );
 
   const getDetails = useCallback(
@@ -207,6 +214,24 @@ const ReceivedList = () => {
     } catch (error) {
       console.error("Error converting date:", error);
       return "خطا در تاریخ";
+    }
+  };
+
+  const formatTime = (dateString) => {
+    if (!dateString) {
+      return null;
+    }
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return null;
+      }
+      const hours = date.getHours().toString().padStart(2, "0");
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.error("Error in formatTime:", error);
+      return null;
     }
   };
 
@@ -256,7 +281,6 @@ const ReceivedList = () => {
           { order_id: order.id, status: nextStatus },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        // Refetch with current filters
         getTakenList(currentPage, debouncedSearchTerm, appliedFilterDate);
 
         Swal.fire({
@@ -281,10 +305,10 @@ const ReceivedList = () => {
       BASE_URL,
       categories,
       decryptData,
-      getTakenList,
+      getTakenList, // getTakenList is stable due to its own useCallback
       currentPage,
       debouncedSearchTerm,
-      appliedFilterDate, // Updated dependency
+      appliedFilterDate,
     ]
   );
 
@@ -292,47 +316,45 @@ const ReceivedList = () => {
     setIsModelOpen(false);
   }, []);
 
-  // Callback to apply the date filter
   const handleApplyDateFilter = useCallback(() => {
-    setAppliedFilterDate(inputFilterDate);
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
-  }, [inputFilterDate, currentPage]);
+    setAppliedFilterDate(inputFilterDate); // This will trigger the useEffect below
+    // No need to call getTakenList here directly, useEffect will handle it
+    // setCurrentPage(1); // Reset to page 1 when filter is applied - this will be handled by the other useEffect
+  }, [inputFilterDate]); // Dependency: inputFilterDate
 
-  // Callback to clear the date filter
   const handleClearDateFilter = useCallback(() => {
     setInputFilterDate("");
-    setAppliedFilterDate("");
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
-  }, [currentPage]);
+    setAppliedFilterDate(""); // This will trigger the useEffect below
+    // setCurrentPage(1); // Reset to page 1 - this will be handled by the other useEffect
+  }, []); // No dependencies needed for clearing
 
   // Effect for fetching data when page, search term, userRole, or APPLIED DATE changes
   useEffect(() => {
     if (typeof userRole === "number") {
+      // The getTakenList function itself is memoized by useCallback.
+      // appliedFilterDate changing will trigger this effect.
       getTakenList(currentPage, debouncedSearchTerm, appliedFilterDate);
     }
   }, [
     currentPage,
     debouncedSearchTerm,
     userRole,
-    getTakenList,
+    getTakenList, // Add getTakenList here as it's a dependency
     appliedFilterDate,
   ]);
 
-  // Effect to reset page to 1 when debouncedSearchTerm or appliedFilterDate changes (but not on initial mount)
+  // Effect to reset page to 1 when debouncedSearchTerm or appliedFilterDate changes
   const firstMountRef = useRef(true);
   useEffect(() => {
     if (firstMountRef.current) {
       firstMountRef.current = false;
       return;
     }
+    // Only reset if the current page is not already 1
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [debouncedSearchTerm, appliedFilterDate]); // Updated dependency
+  }, [debouncedSearchTerm, appliedFilterDate]); // No currentPage dependency here to avoid loops
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -362,12 +384,12 @@ const ReceivedList = () => {
         setUserRole(null);
       }
     };
-    handleStorageChange();
+    handleStorageChange(); // Initial check
     window.addEventListener("storage", handleStorageChange);
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [decryptData, getInitialUserRole]);
+  }, [decryptData]); // Removed getInitialUserRole, not needed here as decryptData covers it
 
   const handleSearchChange = useCallback((e) => {
     setSearchTerm(e.target.value);
@@ -377,7 +399,13 @@ const ReceivedList = () => {
     setCurrentPage(page);
   }, []);
 
-  if (loading && orders.length === 0) {
+  if (
+    loading &&
+    orders.length === 0 &&
+    !appliedFilterDate &&
+    !debouncedSearchTerm
+  ) {
+    // Avoid showing loading if it's just an empty filter result
     return (
       <div className="flex justify-center items-center h-screen">
         <div>Loading...</div>
@@ -396,7 +424,6 @@ const ReceivedList = () => {
         onChange={handleSearchChange}
       />
 
-      {/* Single Date Filter Section */}
       <div className="flex flex-col md:flex-row gap-4 my-4 p-4 border border-gray-200 rounded-lg bg-gray-50 items-center">
         <div className="flex items-center gap-2 w-full md:w-auto flex-grow">
           <label
@@ -417,20 +444,19 @@ const ReceivedList = () => {
           <button
             onClick={handleApplyDateFilter}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={!inputFilterDate} // Disable if no date is input
+            disabled={!inputFilterDate}
           >
             اعمال فیلتر
           </button>
           <button
             onClick={handleClearDateFilter}
             className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={!inputFilterDate && !appliedFilterDate} // Disable if no input and no filter applied
+            disabled={!inputFilterDate && !appliedFilterDate}
           >
             پاک کردن
           </button>
         </div>
       </div>
-      {/* End Single Date Filter Section */}
 
       {loading && (
         <div className="text-center py-2">در حال بارگذاری لیست...</div>
@@ -469,7 +495,7 @@ const ReceivedList = () => {
                   colSpan="7"
                   className="border p-4 text-center text-gray-600"
                 >
-                  {debouncedSearchTerm || appliedFilterDate // Updated condition
+                  {debouncedSearchTerm || appliedFilterDate
                     ? `هیچ سفارشی برای فیلترهای اعمال شده پیدا نشد.`
                     : "هیچ سفارشی برای این وضعیت وجود ندارد."}
                 </td>
@@ -519,7 +545,7 @@ const ReceivedList = () => {
                       </button>
                       <button
                         onClick={() => {
-                          setOrderDetails(order);
+                          setOrderDetails(order); // This is correct for setting the details for the modal
                           getDetails(order.id);
                         }}
                         className="secondry-btn"
@@ -569,21 +595,34 @@ const ReceivedList = () => {
                   </span>
                 </div>
               )}
-
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
-                <span className="font-medium text-gray-700">تاریخ اخذ</span>
+                <span className="font-medium text-gray-700">
+                  تاریخ و زمان اخذ:
+                </span>
                 <span className="text-gray-900">
-                  {convertToHijriShamsi(orderDetails.created_at)}
+                  {(() => {
+                    const dateValue = orderDetails.created_at;
+                    if (!dateValue) return "نامشخص";
+                    const shamsiDateText = convertToHijriShamsi(dateValue);
+                    const timeText = formatTime(dateValue);
+                    const dateError =
+                      shamsiDateText === "N/A" ||
+                      shamsiDateText.includes("نامعتبر") ||
+                      shamsiDateText.includes("خطا");
+                    if (dateError) return shamsiDateText;
+                    return timeText
+                      ? `${shamsiDateText} ساعت ${timeText}`
+                      : shamsiDateText;
+                  })()}
                 </span>
               </div>
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
-                <span className="font-medium text-gray-700">تاریخ تحویل</span>
+                <span className="font-medium text-gray-700">تاریخ تحویل:</span>
                 <span className="text-gray-900">
                   {orderPrice[0]?.delivery_date?.replace(/-/g, "/") || "نامشخص"}
                 </span>
               </div>
             </div>
-
             <div className="flex justify-center mt-5 items-center w-full">
               <button onClick={handleClosePopup} className="tertiary-btn">
                 بستن

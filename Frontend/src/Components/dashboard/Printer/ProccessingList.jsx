@@ -112,7 +112,6 @@ const ProcessingList = () => {
           setOrders((prevOrders) =>
             prevOrders.filter((order) => order.id !== id)
           );
-
           Swal.fire({
             icon: "success",
             title: "سفارش بروزرسانی شد",
@@ -134,6 +133,7 @@ const ProcessingList = () => {
     [BASE_URL]
   );
 
+  
   const handleClosePopup = useCallback(() => {
     setIsModelOpen(false);
   }, []);
