@@ -65,11 +65,9 @@ const ReceivedList = () => {
   const pageSize = 20;
   const [userRole, setUserRole] = useState(getInitialUserRole());
   const [loading, setLoading] = useState(true);
+  console.log(orderDetails);
 
-  // State for single date filter input
-  const [inputFilterDate, setInputFilterDate] = useState(""); // YYYY-MM-DD
-
-  // State for applied date filter (used in API call)
+  const [inputFilterDate, setInputFilterDate] = useState("");
   const [appliedFilterDate, setAppliedFilterDate] = useState("");
 
   const roles = useMemo(
@@ -113,7 +111,6 @@ const ReceivedList = () => {
 
   const getTakenList = useCallback(
     async (page, search = "", filterDate = "") => {
-      // Renamed parameter
       if (typeof userRole !== "number") {
         setLoading(false);
         return;
@@ -143,10 +140,8 @@ const ReceivedList = () => {
         if (search) {
           url += `&search=${encodeURIComponent(search)}`;
         }
-        // Add single date filter to the URL if it's set
-        // Backend should expect 'YYYY-MM-DD' and query param 'date'
         if (filterDate) {
-          url += `&date=${filterDate}`; // Use 'date' query parameter
+          url += `&date=${filterDate}`;
         }
 
         const response = await axios.get(url, {
@@ -156,7 +151,7 @@ const ReceivedList = () => {
           },
         });
         console.log(response);
-        
+
         setOrders(response.data.results || []);
         setTotalOrders(response.data.count || 0);
       } catch (err) {
@@ -210,6 +205,30 @@ const ReceivedList = () => {
     }
   };
 
+  // START: ADDED FUNCTION TO FORMAT TIME
+  const formatTime = (dateString) => {
+    if (!dateString) {
+      return null; // Return null if no date string is provided
+    }
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // console.warn("formatTime received an invalid date string:", dateString);
+        return null; // Return null for invalid dates
+      }
+      const hours = date.getHours().toString().padStart(2, "0");
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      // You can also add seconds if needed:
+      // const seconds = date.getSeconds().toString().padStart(2, "0");
+      // return `${hours}:${minutes}:${seconds}`;
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.error("Error in formatTime:", error);
+      return null; // Return null on error
+    }
+  };
+  // END: ADDED FUNCTION TO FORMAT TIME
+
   const handleAdd = useCallback(
     async (order) => {
       const result = await Swal.fire({
@@ -256,7 +275,6 @@ const ReceivedList = () => {
           { order_id: order.id, status: nextStatus },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        // Refetch with current filters
         getTakenList(currentPage, debouncedSearchTerm, appliedFilterDate);
 
         Swal.fire({
@@ -284,7 +302,7 @@ const ReceivedList = () => {
       getTakenList,
       currentPage,
       debouncedSearchTerm,
-      appliedFilterDate, // Updated dependency
+      appliedFilterDate,
     ]
   );
 
@@ -292,7 +310,6 @@ const ReceivedList = () => {
     setIsModelOpen(false);
   }, []);
 
-  // Callback to apply the date filter
   const handleApplyDateFilter = useCallback(() => {
     setAppliedFilterDate(inputFilterDate);
     if (currentPage !== 1) {
@@ -300,7 +317,6 @@ const ReceivedList = () => {
     }
   }, [inputFilterDate, currentPage]);
 
-  // Callback to clear the date filter
   const handleClearDateFilter = useCallback(() => {
     setInputFilterDate("");
     setAppliedFilterDate("");
@@ -309,7 +325,6 @@ const ReceivedList = () => {
     }
   }, [currentPage]);
 
-  // Effect for fetching data when page, search term, userRole, or APPLIED DATE changes
   useEffect(() => {
     if (typeof userRole === "number") {
       getTakenList(currentPage, debouncedSearchTerm, appliedFilterDate);
@@ -322,7 +337,6 @@ const ReceivedList = () => {
     appliedFilterDate,
   ]);
 
-  // Effect to reset page to 1 when debouncedSearchTerm or appliedFilterDate changes (but not on initial mount)
   const firstMountRef = useRef(true);
   useEffect(() => {
     if (firstMountRef.current) {
@@ -332,7 +346,7 @@ const ReceivedList = () => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [debouncedSearchTerm, appliedFilterDate]); // Updated dependency
+  }, [debouncedSearchTerm, appliedFilterDate]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -396,7 +410,6 @@ const ReceivedList = () => {
         onChange={handleSearchChange}
       />
 
-      {/* Single Date Filter Section */}
       <div className="flex flex-col md:flex-row gap-4 my-4 p-4 border border-gray-200 rounded-lg bg-gray-50 items-center">
         <div className="flex items-center gap-2 w-full md:w-auto flex-grow">
           <label
@@ -417,20 +430,19 @@ const ReceivedList = () => {
           <button
             onClick={handleApplyDateFilter}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={!inputFilterDate} // Disable if no date is input
+            disabled={!inputFilterDate}
           >
             اعمال فیلتر
           </button>
           <button
             onClick={handleClearDateFilter}
             className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={!inputFilterDate && !appliedFilterDate} // Disable if no input and no filter applied
+            disabled={!inputFilterDate && !appliedFilterDate}
           >
             پاک کردن
           </button>
         </div>
       </div>
-      {/* End Single Date Filter Section */}
 
       {loading && (
         <div className="text-center py-2">در حال بارگذاری لیست...</div>
@@ -469,7 +481,7 @@ const ReceivedList = () => {
                   colSpan="7"
                   className="border p-4 text-center text-gray-600"
                 >
-                  {debouncedSearchTerm || appliedFilterDate // Updated condition
+                  {debouncedSearchTerm || appliedFilterDate
                     ? `هیچ سفارشی برای فیلترهای اعمال شده پیدا نشد.`
                     : "هیچ سفارشی برای این وضعیت وجود ندارد."}
                 </td>
@@ -570,14 +582,43 @@ const ReceivedList = () => {
                 </div>
               )}
 
+              {/* START: MODIFIED DATE AND TIME DISPLAY */}
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
-                <span className="font-medium text-gray-700">تاریخ اخذ</span>
+                <span className="font-medium text-gray-700">
+                  تاریخ و زمان اخذ:
+                </span>
                 <span className="text-gray-900">
-                  {convertToHijriShamsi(orderDetails.created_at)}
+                  {(() => {
+                    const dateValue = orderDetails.created_at;
+                    if (!dateValue) return "نامشخص";
+
+                    const shamsiDateText = convertToHijriShamsi(dateValue);
+                    const timeText = formatTime(dateValue); // Use the new formatTime function
+
+                    // Check if date conversion itself resulted in an error string
+                    const dateError =
+                      shamsiDateText === "N/A" ||
+                      shamsiDateText.includes("نامعتبر") ||
+                      shamsiDateText.includes("خطا");
+
+                    if (dateError) {
+                      return shamsiDateText; // Show only the date error
+                    }
+
+                    if (timeText) {
+                      // If timeText is not null (i.e., successfully formatted)
+                      return `${shamsiDateText} ساعت ${timeText}`;
+                    } else {
+                      // If time formatting failed or returned null, just show the date
+                      return shamsiDateText;
+                    }
+                  })()}
                 </span>
               </div>
+              {/* END: MODIFIED DATE AND TIME DISPLAY */}
+
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
-                <span className="font-medium text-gray-700">تاریخ تحویل</span>
+                <span className="font-medium text-gray-700">تاریخ تحویل:</span>
                 <span className="text-gray-900">
                   {orderPrice[0]?.delivery_date?.replace(/-/g, "/") || "نامشخص"}
                 </span>
