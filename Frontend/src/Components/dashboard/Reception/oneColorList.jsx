@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import CryptoJS from "crypto-js";
 import axios from "axios";
-import Pagination from "../../../Utilities/Pagination"; // Added Pagination import
-
+import Pagination from "../../../Utilities/Pagination"; 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const ColorFullList = () => {
@@ -12,9 +11,9 @@ const ColorFullList = () => {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
-  const pageSize = 10; // Or your desired page size
+  const pageSize = 20; 
 
-  const secretKey = "TET4-1"; // Use a strong secret key
+  const secretKey = "TET4-1"; 
 
   const decryptData = useCallback(
     (hashedData) => {
@@ -26,7 +25,6 @@ const ColorFullList = () => {
         const bytes = CryptoJS.AES.decrypt(hashedData, secretKey);
         const decrypted = bytes.toString(CryptoJS.enc.Utf8);
         if (!decrypted) {
-          // Added a check for empty decrypted string
           console.error("Decryption resulted in empty string");
           return null;
         }
@@ -41,9 +39,8 @@ const ColorFullList = () => {
 
   const fetchOrders = useCallback(
     async (page) => {
-      setLoading(true); // Set loading true at the beginning of fetch
+      setLoading(true); 
       const token = decryptData(localStorage.getItem("auth_token"));
-
       if (!token) {
         setError("توکن احراز هویت یافت نشد. لطفاً دوباره وارد شوید.");
         setLoading(false);
@@ -51,9 +48,7 @@ const ColorFullList = () => {
         setTotalOrders(0);
         return;
       }
-
       try {
-        // Using pagenum and page_size as query parameters, similar to ReceivedList example
         const response = await axios.get(
           `${BASE_URL}/group/orders/reception_list/today/?category__category_list=WC&pagenum=${page}&page_size=${pageSize}`,
           {
@@ -61,7 +56,8 @@ const ColorFullList = () => {
               Authorization: `Bearer ${token}`,
             },
           }
-        );
+          );
+         
         setOrders(response.data.results || []);
         setTotalOrders(response.data.count || 0);
         setError(""); 
@@ -114,10 +110,8 @@ const ColorFullList = () => {
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">لیست سفارشات تک رنگ (WC)</h2>
 
-      {/* Show loading indicator during page transitions if preferred */}
       {loading && <p className="p-4 text-center">بارگذاری صفحه جدید...</p>}
 
-      {/* Show error if subsequent fetches fail but orders might exist from previous fetch */}
       {error && !loading && (
         <p className="p-4 text-red-500 text-center">{error}</p>
       )}
@@ -165,7 +159,6 @@ const ColorFullList = () => {
         </div>
       )}
 
-      {/* Pagination Component */}
       {totalOrders > pageSize && !loading && orders.length > 0 && (
         <div className="mt-4 flex justify-center">
           <Pagination

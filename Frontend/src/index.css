@@ -104,3 +104,101 @@ body::-webkit-scrollbar-track {
     height: 100%;
   } */
 }
+/* Add this to your global CSS file (e.g., index.css or App.css) */
+@media print {
+  /* 1. Hide everything that is not explicitly part of the printable area */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 2. Make the printable area and ALL its children visible */
+  #printableTableArea,
+  #printableTableArea * { /* The '*' is important to affect all descendants */
+    visibility: visible;
+  }
+
+  /* 3. Position the printable area to take up the page */
+  #printableTableArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 15px; /* Adjust printer margins as needed */
+    padding: 0;
+    background-color: white !important; /* Ensure background is white for print */
+  }
+
+  /* 4. Ensure elements specifically marked with .no-print are GONE */
+  .no-print, .no-print * { /* Also hide children of no-print elements */
+    display: none !important;
+    visibility: hidden !important; /* Belt and suspenders */
+  }
+
+  /* 5. CRITICAL: Handle the overflow for the table's wrapper */
+  #printableTableArea .overflow-x-auto {
+    overflow-x: visible !important; /* Allow table to expand beyond screen width for print */
+    overflow-y: visible !important; /* Just in case */
+  }
+
+  /* 6. Style the table for printing */
+  #printableTableArea table {
+    width: 100% !important; /* Or 'auto' if you want it to shrink-to-fit content on print */
+    border-collapse: collapse !important;
+    font-size: 9pt !important; /* Adjust for readability on paper */
+    margin: 0 auto; /* Center table if it's not 100% width */
+    table-layout: auto; /* Let browser adjust columns; 'fixed' can also be used if you have issues */
+    background-color: white !important; /* Ensure table background is white */
+  }
+
+  #printableTableArea th,
+  #printableTableArea td {
+    border: 1px solid #000 !important; /* Black borders for clarity */
+    padding: 4px 6px !important; /* Adjust padding */
+    text-align: center !important;
+    color: #000 !important; /* Ensure text is black */
+    word-wrap: break-word; /* Help prevent long text from overflowing cells */
+  }
+
+  /* Style the table header for printing */
+  #printableTableArea thead tr {
+    background-color: #e0e0e0 !important; /* Light gray background for header */
+    color: #000 !important;
+    -webkit-print-color-adjust: exact; /* For Chrome/Safari to print backgrounds */
+    print-color-adjust: exact;         /* Standard property */
+  }
+
+  /* Ensure table body rows have a white background (or alternating if you prefer) */
+  #printableTableArea tbody tr {
+     background-color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Optional: Zebra striping for print (uncomment if desired)
+  #printableTableArea tbody tr:nth-child(even) {
+    background-color: #f8f8f8 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  */
+
+
+  /* Style the title for printing */
+  #printableTableArea h2 {
+    font-size: 14pt !important;
+    text-align: center;
+    color: #000 !important;
+    margin-bottom: 15px;
+    font-weight: bold;
+  }
+
+  /* Try to prevent page breaks inside rows and ensure header repeats */
+  #printableTableArea tr {
+    page-break-inside: avoid !important;
+  }
+  #printableTableArea thead {
+    display: table-header-group !important; /* Crucial for repeating headers on new pages */
+  }
+  #printableTableArea tfoot {
+    display: table-footer-group !important; /* If you had a tfoot */
+  }
+}

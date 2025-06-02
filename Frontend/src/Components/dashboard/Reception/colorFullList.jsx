@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import CryptoJS from "crypto-js";
 import axios from "axios";
+import Pagination from "../../../Utilities/Pagination"; // Assuming this path is correct
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const ColorFullList = () => {
@@ -8,114 +9,193 @@ const ColorFullList = () => {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState("");
-  const secretKey = "TET4-1"; // Use a strong secret key
-  const decryptData = (hashedData) => {
-    if (!hashedData) {
-      console.error("No data to decrypt");
-      return null;
-    }
-    try {
-      const bytes = CryptoJS.AES.decrypt(hashedData, secretKey);
-      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-      return JSON.parse(decrypted);
-    } catch (error) {
-      console.error("Decryption failed:", error);
-      return null;
-    }
-  };
-  const fetchOrders = async () => {
-    const token = decryptData(localStorage.getItem("auth_token"));
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const pageSize = 20;
 
-    try {
-      const response = await axios.get(
-        `${BASE_URL}/group/orders/reception_list/today/?category__category_list=CF`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+  const secretKey = "TET4-1";
+
+  const decryptData = useCallback(
+    (hashedData) => {
+      if (!hashedData) {
+        console.error("No data to decrypt");
+        return null;
+      }
+      try {
+        const bytes = CryptoJS.AES.decrypt(hashedData, secretKey);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+        if (!decrypted) {
+          console.error("Decryption resulted in empty string");
+          return null;
         }
-      );
-      setOrders(response.data.results || []);
-    } catch (err) {
-      console.error("خطا در دریافت اطلاعات:", err);
-      setError("دریافت اطلاعات ناموفق بود.");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const fetchCategories = useCallback(async () => {
-    // Added useCallback
-    let currentToken = decryptData(localStorage.getItem("auth_token"));
+        return JSON.parse(decrypted);
+      } catch (error) {
+        console.error("Decryption failed:", error);
+        return null;
+      }
+    },
+    [secretKey]
+  );
 
-    // setLoading(true); // Avoid resetting loading if fetchOrders is also running
+  const fetchOrders = useCallback(
+    async (page) => {
+      setLoading(true);
+      const token = decryptData(localStorage.getItem("auth_token"));
+      if (!token) {
+        setError("توکن احراز هویت یافت نشد. لطفاً دوباره وارد شوید.");
+        setLoading(false);
+        setOrders([]);
+        setTotalOrders(0);
+        return;
+      }
+      try {
+        const response = await axios.get(
+          `${BASE_URL}/group/orders/reception_list/today/?category__category_list=CF&pagenum=${page}&page_size=${pageSize}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setOrders(response.data.results || []);
+        setTotalOrders(response.data.count || 0);
+        setError("");
+      } catch (err) {
+        console.error("خطا در دریافت اطلاعات:", err);
+        setError("دریافت اطلاعات ناموفق بود.");
+        setOrders([]);
+        setTotalOrders(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [BASE_URL, decryptData, pageSize]
+  );
+
+  const fetchCategories = useCallback(async () => {
+    let currentToken = decryptData(localStorage.getItem("auth_token"));
+    if (!currentToken) {
+      console.warn("Token not available for fetching categories");
+      setCategories([]);
+      return;
+    }
     try {
-      // Using axios for consistency
       const response = await axios.get(`${BASE_URL}/group/categories/`, {
         headers: { Authorization: `Bearer ${currentToken}` },
       });
       setCategories(response.data || []);
     } catch (error) {
-      setError("Error fetching categories");
+      // setError("Error fetching categories"); // Avoid overwriting primary error
       console.error("Error fetching categories:", error.response || error);
-      setCategories([]); // Clear on error
-    } finally {
-      // setLoading(false); // Let fetchOrders handle final loading state
+      setCategories([]);
     }
-  }, []);
+  }, [BASE_URL, decryptData]);
 
   useEffect(() => {
-      fetchOrders();
-      fetchCategories();
-  }, []);
+    fetchOrders(currentPage);
+    fetchCategories();
+  }, [currentPage, fetchOrders, fetchCategories]);
 
-  if (loading) return <p className="p-4">در حال بارگذاری...</p>;
-  if (error) return <p className="p-4 text-red-500">{error}</p>;
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (loading && orders.length === 0)
+    return <p className="p-4">در حال بارگذاری...</p>;
+  if (error && orders.length === 0 && !loading)
+    return <p className="p-4 text-red-500">{error}</p>;
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">لیست سفارشات رنگی (WC)</h2>
-
-      {orders.length === 0 ? (
-        <p>سفارشی یافت نشد.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-green text-gray-100 text-center">
-                <th className="border border-gray-300 px-4 py-2">نام مشتری</th>
-                <th className="border border-gray-300 px-4 py-2">نام سفارش</th>
-                <th className="border border-gray-300 px-4 py-2">دسته‌بندی</th>
-                <th className="border border-gray-300 px-4 py-2">دیزاینر</th>
-                <th className="border border-gray-300 px-4 py-2">حالت</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                >
-                  <td className="border border-gray-300 px-4 py-2">
-                    {order.customer_name}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {order.order_name}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {categories
-                      .find((cat) => cat.id === order.category)
-                      ?.category_list || "نامشخص"}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {order.designer_details?.full_name || "نامشخص"}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {order.status}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Print Button */}
+      <button
+        onClick={handlePrint}
+        className="no-print mb-4 ml-auto block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      >
+        چاپ این صفحه
+      </button>
+      <div id="printableTableArea">
+        {" "}
+        {/* Div to define printable content */}
+        <h2 className="text-xl font-bold mb-4 text-center">
+          {" "}
+          {/* Centered title for print */}
+          لیست سفارشات رنگی (CF) - صفحه {currentPage}
+        </h2>
+        {loading && orders.length > 0 && (
+          <p className="p-4 text-center no-print">بارگذاری صفحه جدید...</p>
+        )}
+        {error && !loading && orders.length > 0 && (
+          <p className="p-4 text-red-500 text-center no-print">{error}</p>
+        )}
+        {orders.length === 0 && !loading && !error ? (
+          <p className="text-center">سفارشی یافت نشد.</p>
+        ) : (
+          (!loading || orders.length > 0) && ( // Render table if not loading or if orders are already loaded
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-green text-gray-100 text-center">
+                    <th className="border border-gray-300 px-4 py-2">
+                      نام مشتری
+                    </th>
+                    <th className="border border-gray-300 px-4 py-2">
+                      نام سفارش
+                    </th>
+                    <th className="border border-gray-300 px-4 py-2">
+                      دسته‌بندی
+                    </th>
+                    <th className="border border-gray-300 px-4 py-2">
+                      دیزاینر
+                    </th>
+                    <th className="border border-gray-300 px-4 py-2">حالت</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                    >
+                      <td className="border border-gray-300 px-4 py-2">
+                        {order.customer_name}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {order.order_name}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {categories.find((cat) => cat.id === order.category)
+                          ?.category_list || "نامشخص"}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {order.designer_details?.full_name || "نامشخص"}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {order.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </div>{" "}
+      {/* End of printableTableArea */}
+      {totalOrders > pageSize && !loading && orders.length > 0 && (
+        <div className="mt-4 flex justify-center no-print">
+          {" "}
+          {/* Added no-print to pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
     </div>
