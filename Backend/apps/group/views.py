@@ -630,19 +630,13 @@ class ReceptionListOldOrdersView(generics.ListAPIView):
 
 
 class ReceptionTodayNonReceptionOrdersViewSet(viewsets.ModelViewSet):
-    """
-    NEW: Endpoint for Reception role (role=2) to perform CRUD operations
-    on orders created TODAY that DO NOT have status='Reception'.
-    URL: /group/orders/reception_list/today/ (list/create)
-         /group/orders/reception_list/today/{pk}/ (retrieve/update/delete)
-    """
 
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = OrderPagination
     filter_backends = [SearchFilter, DjangoFilterBackend]
     search_fields = ["secret_key", "order_name", "customer_name"]
-    filterset_fields = ["category", "designer"]
+    filterset_fields = ["category", "designer", "category__category_list"]
 
     def get_queryset(self):
         """Filters for today's orders excluding 'Reception' status, for Reception role."""
