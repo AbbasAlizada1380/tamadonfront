@@ -46,9 +46,18 @@ User = get_user_model()
 
 
 class CategoryCreateView(generics.ListCreateAPIView):
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        category_type = self.request.query_params.get("category_list")
+
+        if category_type is not None:
+            if category_type in dict(Category.CategoryList.choices):
+                return Category.objects.filter(category_list=category_type)
+            else:
+                return Category.objects.none()
+        return Category.objects.all()
 
 
 class CategoryUpdateView(generics.RetrieveUpdateDestroyAPIView):
