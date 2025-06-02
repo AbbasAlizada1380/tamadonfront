@@ -25,7 +25,7 @@ class Command(BaseCommand):
             designer = random.choice(users)  # Random user for designer
             category = random.choice(categories)  # Random category
             status = random.choice(
-                ["Delivery","Laser"]
+                ["Delivery","Laser","Head_of_designers"]
             )  # Random status
 
             # Create and save the Order instance
