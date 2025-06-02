@@ -46,9 +46,17 @@ User = get_user_model()
 
 
 class CategoryCreateView(generics.ListCreateAPIView):
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = Category.objects.all()
+        category_type = self.request.query_params.get("category_list")
+        if category_type in dict(Category.CategoryList.choices):
+            queryset = queryset.filter(category_list=category_type)
+        else:
+            return Category.objects.none()
+        return queryset
 
 
 class CategoryUpdateView(generics.RetrieveUpdateDestroyAPIView):
@@ -394,30 +402,6 @@ class OrderStatusUpdateView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# class OrderStatusUpdateView(APIView):
-#     """ EXISTING: Simple view to update status via POST. """
-#     permission_classes = [IsAuthenticated]
-#     def post(self, request, *args, **kwargs):
-#         serializer = OrderStatusUpdateSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         order_id = serializer.validated_data["order_id"]
-#         new_status = serializer.validated_data["status"]
-#         try:
-#             order = Order.objects.select_related('designer').get(id=order_id)
-#         except Order.DoesNotExist:
-#             raise NotFound("Order not found.")
-#         user = request.user
-
-#         is_admin = user.is_admin or (getattr(user, 'role', None) == User.Admin)
-#         is_designer = (order.designer == user )
-#         if not (is_admin or is_designer):
-#             raise PermissionDenied("You do not have permission to update this order's status.")
-#         order.status = new_status
-#         order.updated_at = timezone.now()
-#         order.save(update_fields=['status', 'updated_at'])
-#         return Response({"message": "Order status updated successfully."}, status=status.HTTP_200_OK)
 
 
 class ReceptionOrderViewSet(viewsets.ModelViewSet):
