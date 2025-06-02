@@ -713,7 +713,6 @@ class SuperDesignerReceptionOrdersViewSet(viewsets.ModelViewSet):
 
 
 class OrderStatusRoleViewSet(viewsets.ModelViewSet):
-
     serializer_class = OrderSerializer
     permission_classes = [AllowAny]
     pagination_class = OrderPagination
