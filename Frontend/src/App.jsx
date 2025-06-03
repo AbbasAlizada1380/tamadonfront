@@ -16,6 +16,9 @@ import CreateNewPassword from "./Components/loginpage/CreateNewPassword";
 import CategoryPage from "./Components/Blog/CategoryPage";
 import ServiceDetails from "./Components/Services/ServiceDetails";
 
+
+
+
 function App() {
   return (
     <BrowserRouter>
@@ -25,7 +28,6 @@ function App() {
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogCardDetails />} />
           <Route path="/category/:categoryName" element={<CategoryPage />} />
-          {/* New route */}
           <Route path="/service" element={<Services />} />
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/contactus" element={<ContactUs />} />

@@ -17,6 +17,7 @@ const CategoryManagement = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [responseMessage, setResponseMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [categoryList, setCategoryList] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const roles = [
@@ -79,6 +80,7 @@ const CategoryManagement = () => {
           {
             name: categoryName,
             stages: selectedRoles,
+            category_list: categoryList, // ✅ Include category list in update
           },
           { headers } // ✅ Pass headers
         );
@@ -101,7 +103,9 @@ const CategoryManagement = () => {
           `${BASE_URL}/group/categories/`,
           {
             name: categoryName,
-            stages: selectedRoles,
+            stages: selectedRoles, 
+            category_list: categoryList, // ✅ Include category list in creation
+
           },
           { headers } // ✅ Pass headers
         );
@@ -176,11 +180,13 @@ const CategoryManagement = () => {
     }
   };
 
-  const handleEdit = (category) => {
-    setCategoryName(category.name);
-    setSelectedRoles(category.stages || []); // ✅ Load existing roles in update mode
-    setEditingCategory(category);
-  };
+const handleEdit = (category) => {
+  setCategoryName(category.name);
+  setSelectedRoles(category.stages || []);
+  setCategoryList(category.category_list || ""); // ✅ This line fixes the issue
+  setEditingCategory(category);
+};
+
 
   const handleSearch = (e) => {
     const term = e.target.value;
@@ -230,6 +236,7 @@ const CategoryManagement = () => {
           {editingCategory ? "ویرایش کتگوری" : "افزودن کتگوری"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Category Name */}
           <div>
             <label className="block text-lg font-medium text-gray-700 mb-1">
               نام کتگوری
@@ -243,6 +250,25 @@ const CategoryManagement = () => {
               required
             />
           </div>
+
+          {/* Category List - Select Field */}
+          <div>
+            <label className="block text-lg font-medium text-gray-700 mb-1">
+              نوع کتگوری
+            </label>
+            <select
+              value={categoryList}
+              onChange={(e) => setCategoryList(e.target.value)}
+              required
+              className="w-full px-3 py-2 border rounded bg-gray-200 text-black focus:outline-none"
+            >
+              <option value="">انتخاب کنید</option>
+              <option value="CF">Color Full</option>
+              <option value="WC">Without Color</option>
+            </select>
+          </div>
+
+          {/* Steps */}
           <label className="block text-lg font-medium text-gray-700 mb-1">
             مراحل
           </label>
@@ -250,12 +276,12 @@ const CategoryManagement = () => {
             {roles.map((role) => (
               <div
                 key={role.id}
-                className="flex items-center gap-x-3 border-b p-2  last:border-b-0"
+                className="flex items-center gap-x-3 border-b p-2 last:border-b-0"
               >
                 <input
                   type="checkbox"
                   value={role.name}
-                  checked={selectedRoles.includes(role.name)} // ✅ Pre-check existing roles
+                  checked={selectedRoles.includes(role.name)}
                   onChange={(e) => handleRoleChange(role.name, e)}
                   className="form-checkbox h-5 w-5 text-green-500 focus:ring-green-500"
                 />
@@ -264,9 +290,9 @@ const CategoryManagement = () => {
             ))}
           </div>
 
-          {/* Selected roles order display */}
+          {/* Selected Steps */}
           {selectedRoles.length > 0 && (
-            <div className="mt-4 bg-white p-4 ">
+            <div className="mt-4 bg-white p-4">
               <h3 className="text-gray-800 font-semibold mb-3 text-lg">
                 ترتیب مراحل انتخاب شده:
               </h3>
@@ -286,6 +312,7 @@ const CategoryManagement = () => {
             </div>
           )}
 
+          {/* Submit Buttons */}
           <div className="flex justify-center gap-4 mt-4">
             <button type="submit" className="secondry-btn">
               {editingCategory ? "ویرایش" : "اضافه کردن"}
@@ -316,6 +343,9 @@ const CategoryManagement = () => {
               </th>
               <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
                 عملیات
+              </th>{" "}
+              <th className="border border-gray-300 px-6 py-2.5 text-sm font-semibold">
+                نوع کتگوری
               </th>
             </tr>
           </thead>
@@ -340,6 +370,9 @@ const CategoryManagement = () => {
                             .join(", ") // Convert the array to a readable string
                         : "ندارد"}
                     </td>
+                  </td>{" "}
+                  <td className="border-gray-300 px-6 py-2 text-gray-700">
+                    {category.category_list}
                   </td>
                   <td className="flex items-center justify-center gap-x-5 border-gray-300 px-6 py-2 text-gray-700">
                     <button

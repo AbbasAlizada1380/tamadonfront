@@ -65,6 +65,8 @@ import Token from "./TokenOrdeing/Token.jsx";
 import OrderListSuperDesigner from "./designer/orderlistSuperDesigner.jsx";
 import BillTotal from "./Reception/BillTotal.jsx";
 import PTokenOrders from "./Reception/PTokenOrders.jsx";
+import OneColorList from "./Reception/oneColorList.jsx";
+import ColorFullList from "./Reception/colorFullList.jsx";
 const Dashboard = () => {
   // Modal visibility state
   const secretKey = "TET4-1"; // Use a strong secret key
@@ -235,7 +237,15 @@ const Dashboard = () => {
       "OrderListSuperDesigner",
     ],
     0: ["defaultPage", "User Management", "data", "designerChart", "Logout"],
-    2: ["defaultPage", "OrderList", "TokenOrders", "PTokenOrders", "Logout"],
+    2: [
+      "defaultPage",
+      "OrderList",
+      "TokenOrders",
+      "PTokenOrders",
+      "OneColorList",
+      "ColorFullList",
+      "Logout",
+    ],
     4: ["defaultPage", "ReceivedList", "Logout"],
     5: ["defaultPage", "deliver", "ReceivedList", "Logout"],
     6: ["defaultPage", "ReceivedList", "Logout"],
@@ -323,6 +333,16 @@ const Dashboard = () => {
       component: "PTokenOrders",
       icon: <FaClipboardList />,
       label: "سفارشات  قبلی",
+    },
+    OneColorList: {
+      component: "OneColorList",
+      icon: <FaClipboardList />,
+      label: " لیست سفارشات یک رنگ",
+    },
+    ColorFullList: {
+      component: "ColorFullList",
+      icon: <FaClipboardList />,
+      label: " لیست سفارشات رنگی",
     },
 
     "Add Order": {
@@ -471,6 +491,10 @@ const Dashboard = () => {
         return <ReportDashboard />;
       case "AddOrder":
         return <AddOrder />;
+      case "OneColorList":
+        return <OneColorList />;
+      case "ColorFullList":
+        return <ColorFullList />;
       case "UserManagement":
         return <UserManagement />;
       case "designerChart":
@@ -490,7 +514,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="loader mr-3"></div>
         <span className="text-xl font-semibold">در حال بارگذاری...</span>
-  
+
         <style jsx>{`
           .loader {
             width: 40px;
@@ -500,7 +524,7 @@ const Dashboard = () => {
             border-radius: 50%;
             animation: spin 1s linear infinite;
           }
-  
+
           @keyframes spin {
             to {
               transform: rotate(360deg);
@@ -510,7 +534,6 @@ const Dashboard = () => {
       </div>
     );
   }
-  
 
   return (
     <div className={`bg-gray-100 text-gray-800 h-screen w-full flex flex-col`}>
