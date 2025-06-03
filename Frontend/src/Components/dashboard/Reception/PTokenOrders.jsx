@@ -6,23 +6,24 @@ import CryptoJS from "crypto-js";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import vazirmatnFont from "/vazirmatnBase64.txt"; // Ensure this is a valid Base64 font
-import SearchBar from "../../../Utilities/Searching"; // Using your SearchBar component
+// import SearchBar from "../../../Utilities/Searching"; // Using direct input for clarity like AddOrder
+import { FaSearch } from "react-icons/fa"; // Import search icon
 import { useDebounce } from "use-debounce"; // Import useDebounce
 import Pagination from "../../../Utilities/Pagination"; // Adjust path if needed
-// import { CiEdit } from "react-icons/ci"; // Not used directly
+import { CiEdit } from "react-icons/ci";
 import { FaCheck, FaEdit } from "react-icons/fa";
 import { Price } from "./Price";
 
 import Swal from "sweetalert2";
-import BillTotalpage from "../../Bill_Page/BillTotalpage"; // Kept, though selectedOrders logic for it might need review if not used
+import BillTotalpage from "../../Bill_Page/BillTotalpage";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-// Define the API endpoint for fetching orders (from your original PTokenOrders)
-const PTOKEN_ORDERS_API_ENDPOINT = `${BASE_URL}/group/group/orders/reception_list/`;
+// Define the API endpoint for fetching orders (similar to AddOrder)
+const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/reception_list/`; // Or adjust if a different endpoint is needed for TokenOrders search
 
-const PTokenOrders = () => {
+const TokenOrders = () => {
   const [orders, setOrders] = useState([]);
-  const [passedOrder, setPassedOrder] = useState(null); // Keep as is
+  const [passedOrder, setPassedOrder] = useState([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [isTotalModelOpen, setIsTotalModelOpen] = useState(false);
@@ -31,29 +32,31 @@ const PTokenOrders = () => {
   const [prices, setPrices] = useState({});
   const [receivedPrices, setReceivedPrices] = useState({});
   const [remaindedPrices, setRemaindedPrices] = useState({});
+  const [reception_name, setReception_name] = useState({});
   const [DDate, setDDate] = useState({});
-  // const [totalCount, setTotalCount] = useState(0); // Redundant with totalOrders, removed
+  // const [totalCount, setTotalCount] = useState(0); // totalOrders is already used for this
   const [loading, setLoading] = useState(true);
-  const pageSize = 20; // Your defined page size
+  const pageSize = 20; // Keep your desired page size
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1); // Kept as in original
+  // const [totalPages, setTotalPages] = useState(1); // Can be calculated from totalOrders and pageSize
+  const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
+  const [users, setUsers] = useState({});
+  const [isClicked, setIsClicked] = useState(false);
 
   // --- Search State ---
-  const [searchTerm, setSearchTerm] = useState(""); // Raw search input from SearchBar
-  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API
-  // const [searchResults, setSearchResults] = useState([]); // Removed, data comes from server
+  const [searchTerm, setSearchTerm] = useState(""); // Raw search input
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API call
 
-  const [isClicked, setIsClicked] = useState(true);
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const secretKey = "TET4-1";
 
-  // --- Decryption Function (Made robust like TokenOrders) ---
+  // --- Decryption Function (Keep as is) ---
   const decryptData = useCallback((hashedData) => {
     if (!hashedData) {
-      // console.error("No data to decrypt");
+      // console.error("No data to decrypt"); // Keep console logs minimal if preferred
       return null;
     }
     try {
@@ -64,30 +67,44 @@ const PTokenOrders = () => {
       console.error("Decryption failed:", error);
       return null;
     }
-  }, []); // secretKey is constant
+  }, []);
+
   const handleClick = () => {
     setIsClicked(!isClicked);
   };
+  // --- Helper Functions (Keep printBill, getAuthToken, isTokenExpired, refreshAuthToken as is) ---
   const printBill = async () => {
+    // ... (keep existing printBill logic)
     const element = document.getElementById("bill-content");
     if (!element) {
       console.error("Bill content not found!");
       return;
     }
+
     try {
+      // A5 Portrait: 148mm x 210mm
       const billWidth = 148;
       const billHeight = 210;
+
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: [billHeight, billWidth],
       });
+
       pdf.addFileToVFS("Vazirmatn.ttf", vazirmatnFont);
       pdf.addFont("vazirmatn.ttf", "vazirmatn", "normal");
       pdf.setFont("vazirmatn");
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+      });
+
       const imgData = canvas.toDataURL("image/jpeg", 1.0);
+
       pdf.addImage(imgData, "JPEG", 0, 0, billWidth, billHeight);
+
       pdf.autoPrint();
       window.open(pdf.output("bloburl"), "_blank");
     } catch (error) {
@@ -95,48 +112,64 @@ const PTokenOrders = () => {
     }
   };
 
-  // --- Auth Functions (Made robust like TokenOrders) ---
   const getAuthToken = useCallback(
     () => decryptData(localStorage.getItem("auth_token")),
     [decryptData]
   );
 
-  const isTokenExpired = useCallback((token) => {
-    if (!token) return true;
+  const isTokenExpired = (token) => {
     try {
       const decoded = jwt_decode(token);
       const currentTime = Date.now() / 1000;
       return decoded.exp < currentTime;
     } catch (error) {
       console.error("Error decoding token:", error);
-      return true;
+      return true; // Assume expired if decoding fails
     }
-  }, []);
+  };
 
   const refreshAuthToken = useCallback(async () => {
     try {
-      const refreshToken = decryptData(localStorage.getItem("refresh_token"));
+      // Assuming refresh token logic exists and is stored securely
+      const refreshToken = decryptData(localStorage.getItem("refresh_token")); // Or however you store it
       if (!refreshToken) throw new Error("Refresh token not found.");
 
       const response = await axios.post(
         `${BASE_URL}/users/user/token/refresh/`,
-        { refresh: refreshToken }
+        {
+          refresh: refreshToken,
+        }
       );
+
       const newAuthToken = response.data.access;
+      // Encrypt and store the new token (ensure encryption is consistent)
       const encryptedToken = CryptoJS.AES.encrypt(
         JSON.stringify(newAuthToken),
         secretKey
       ).toString();
       localStorage.setItem("auth_token", encryptedToken);
-      console.log("Token refreshed successfully for PTokenOrders.");
-      return newAuthToken;
+      // Optionally update refresh token if backend sends a new one
+      // if (response.data.refresh) { ... }
+      console.log("Token refreshed successfully.");
+      return newAuthToken; // Return the raw (decrypted) new token for immediate use
     } catch (error) {
-      console.error("Unable to refresh token for PTokenOrders", error);
+      console.error("Unable to refresh token", error);
+      // Handle logout or redirect to login if refresh fails
+      // e.g., localStorage.clear(); window.location.href = '/login';
       return null;
     }
-  }, [decryptData]); // secretKey is constant
-
-  // --- Fetch Data Function (Modified for Server-Side Search) ---
+  }, [decryptData]); // Add decryptData dependency
+ const fetchUsers = async () => {
+   try {
+     const response = await axios.get(`${BASE_URL}/users/api/users/`);
+     setUsers(response.data);
+     console.log(response.data);
+   } catch (error) {
+     console.error("Error fetching users:", error);
+   }
+  };
+  useEffect(() => {fetchUsers()}, [])
+  // --- Fetch Data Function (Modified for Search) ---
   const fetchData = useCallback(async () => {
     setLoading(true);
     let token = getAuthToken();
@@ -148,9 +181,11 @@ const PTokenOrders = () => {
     }
 
     if (isTokenExpired(token)) {
+      console.log("Auth token expired, attempting refresh...");
       token = await refreshAuthToken();
       if (!token) {
-        console.error("Unable to refresh token. Aborting fetch.");
+        console.error("Token refresh failed. Aborting fetch.");
+        // Handle logout or redirect appropriately here
         setLoading(false);
         return;
       }
@@ -158,83 +193,118 @@ const PTokenOrders = () => {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
+
+      // --- Build URL with Search and Pagination ---
       const params = new URLSearchParams({
         pagenum: currentPage.toString(),
-        page_size: pageSize.toString(),
+        page_size: pageSize.toString(), // Add page_size if your API supports it
       });
 
       if (debouncedSearchTerm) {
-        params.append("search", debouncedSearchTerm);
+        params.append("search", debouncedSearchTerm); // Add search parameter if term exists
       }
 
-      const ordersUrl = `${PTOKEN_ORDERS_API_ENDPOINT}?${params.toString()}`;
+      // Ensure the endpoint supports these parameters
+      const ordersUrl = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
+      // --- End URL Building ---
 
+      // Fetch orders, categories, and users (keep this structure if needed)
       const [ordersResponse, categoriesResponse, usersResponse] =
         await Promise.all([
-          axios.get(ordersUrl, { headers }),
+          axios.get(ordersUrl, { headers }), // Use the constructed URL
           axios.get(`${BASE_URL}/group/categories/`, { headers }),
-          axios.get(`${BASE_URL}/users/api/users/`, { headers }),
+          axios.get(`${BASE_URL}/users/api/users/`, { headers }), // Make sure this endpoint is correct
         ]);
 
       setOrders(ordersResponse.data.results || []);
       setTotalOrders(ordersResponse.data.count || 0);
-      setTotalPages(Math.ceil((ordersResponse.data.count || 0) / pageSize)); // Corrected to use pageSize
-      setCategories(categoriesResponse.data || []);
-      setDesigners(usersResponse.data || []);
+      // setTotalCount(ordersResponse.data.count || 0); // Redundant with totalOrders
+      // setTotalPages(Math.ceil(ordersResponse.data.count / pageSize)); // Calculated in Pagination
 
+      setCategories(categoriesResponse.data || []);
+      setDesigners(usersResponse.data || []); // Ensure this state is used or remove fetch
+
+      // --- Fetch Prices Logic (Keep as is) ---
       const newPrices = {};
       const newReceived = {};
       const newRemainded = {};
       const newDeliveryDate = {};
-
+      const newReception_name = {};
       if (ordersResponse.data.results) {
         await Promise.all(
           ordersResponse.data.results.map(async (order) => {
             try {
+              // Consider adding a check if price data is actually needed for the current view/search results
               const priceResponse = await axios.get(
                 `${BASE_URL}/group/order-by-price/`,
-                { params: { order: order.id }, headers } // Pass headers with token
+                {
+                  params: { order: order.id },
+                  headers: { Authorization: `Bearer ${token}` }, // Pass token here too
+                }
               );
+
               const data1 = priceResponse.data;
+              console.log(priceResponse.data);
+
               if (data1 && data1.length > 0) {
                 newPrices[order.id] = data1[0].price;
                 newReceived[order.id] = data1[0].receive_price;
                 newRemainded[order.id] = data1[0].reminder_price;
                 newDeliveryDate[order.id] = data1[0].delivery_date;
+                newReception_name[order.id] = data1[0].reception_name;
               } else {
-                // console.warn(`No price data for order ID: ${order.id}`);
+                // console.warn(`No price data found for order ID: ${order.id}`);
               }
             } catch (priceError) {
-              if (priceError.response?.status !== 404) {
-                console.error(
-                  `Error fetching price for order ID: ${order.id}`,
-                  priceError
-                );
+              // Handle price fetch errors gracefully (e.g., don't block UI)
+              if (priceError.response?.status === 404) {
+                // console.warn(`Price data not found for order ID: ${order.id}`);
+              } else {
+                // console.error(`Error fetching price for order ID: ${order.id}`, priceError);
               }
-              // Set defaults if price fetch fails or no data
+              // Set default/placeholder values if needed
               newPrices[order.id] = newPrices[order.id] ?? "N/A";
               newReceived[order.id] = newReceived[order.id] ?? "N/A";
               newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
               newDeliveryDate[order.id] = newDeliveryDate[order.id] ?? "N/A";
+              newReception_name[order.id] = newReception_name[order.id] ?? "N/A";
             }
           })
         );
-        setPrices((prev) => ({ ...prev, ...newPrices }));
-        setReceivedPrices((prev) => ({ ...prev, ...newReceived }));
-        setRemaindedPrices((prev) => ({ ...prev, ...newRemainded }));
-        setDDate((prev) => ({ ...prev, ...newDeliveryDate }));
+        // Update price states outside the map loop for efficiency
+        setPrices((prevPrices) => ({ ...prevPrices, ...newPrices }));
+        setReceivedPrices((prevReceived) => ({
+          ...prevReceived,
+          ...newReceived,
+        }));
+        setRemaindedPrices((prevRemainded) => ({
+          ...prevRemainded,
+          ...newRemainded,
+        }));
+        setReception_name((prevReception_name) => ({
+          ...prevReception_name,
+          ...newReception_name,
+        }));
+        setDDate((prevDDate) => ({ ...prevDDate, ...newDeliveryDate }));
       }
     } catch (error) {
       console.error(
         "Error fetching data:",
-        error.response?.data || error.message
+        error.response?.data || error.message || error
       );
       if (error.response?.status === 401) {
-        await refreshAuthToken();
+        // Specific handling for unauthorized, maybe try refresh again or logout
+        console.error(
+          "Unauthorized access - token might be invalid or expired."
+        );
+        await refreshAuthToken(); // Attempt refresh again or trigger logout
       }
-      setOrders([]); // Clear orders on error
+      // Set empty state on error to avoid displaying stale data
+      setOrders([]);
       setTotalOrders(0);
-      setTotalPages(1);
+      setCategories([]);
+      setDesigners([]);
+      // Optional: Show error message to user using Swal or similar
     } finally {
       setLoading(false);
     }
@@ -243,22 +313,28 @@ const PTokenOrders = () => {
     pageSize,
     debouncedSearchTerm,
     getAuthToken,
-    isTokenExpired,
     refreshAuthToken,
-    showPrice,
-  ]); // Added showPrice from original dependencies
+  ]); // Add dependencies
 
+  // --- Event Handlers (Keep existing handlers, add search handler) ---
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    // No need to set page here, the useEffect below handles it
+  };
+
   const handleComplete = async (id) => {
+    // ... (keep existing handleComplete logic)
     try {
-      const authToken = getAuthToken(); // Use the callback version
+      const authToken = decryptData(localStorage.getItem("auth_token"));
       if (!authToken) {
-        Swal.fire("خطا", "ابتدا وارد شوید.", "error");
+        console.error("No auth token found");
         return;
       }
+
       const confirm = await Swal.fire({
         title: "آیا مطمئن هستید که می‌خواهید باقی‌مانده را تکمیل کنید؟",
         icon: "warning",
@@ -266,40 +342,33 @@ const PTokenOrders = () => {
         confirmButtonText: "بله",
         cancelButtonText: "خیر",
       });
+
       if (confirm.isConfirmed) {
-        await axios.post(
+        const completeResponse = await axios.post(
           `${BASE_URL}/group/order-by-price/complete/${id}/`,
           {},
-          { headers: { Authorization: `Bearer ${authToken}` } }
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
         );
-        Swal.fire("موفق!", "باقی‌مانده با موفقیت تکمیل شد.", "success");
-        fetchData(); // Refetch data
+        await Swal.fire({
+          title: "موفق!",
+          text: "باقی‌مانده با موفقیت تکمیل شد.",
+          icon: "success",
+        });
       }
+      fetchData(); // Refetch data after completion
     } catch (error) {
       console.error("Error completing order:", error);
-      Swal.fire("خطا!", "مشکلی پیش آمد، دوباره تلاش کنید.", "error");
+      await Swal.fire({
+        title: "خطا!",
+        text: "مشکلی پیش آمد، دوباره تلاش کنید.",
+        icon: "error",
+      });
     }
   };
-
-  // --- useEffect Hooks ---
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData]); // fetchData now includes all its dependencies for fetching
-
-  // Effect to reset page to 1 when debouncedSearchTerm changes
-  useEffect(() => {
-    if (debouncedSearchTerm !== undefined && currentPage !== 1) {
-      // Check debouncedSearchTerm is defined to avoid initial trigger
-      setCurrentPage(1);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm]); // Only depends on debouncedSearchTerm
-
-  // Client-side search useEffect REMOVED:
-  // useEffect(() => {
-  //   if (searchTerm) { ... } else { setSearchResults([]); }
-  // }, [searchTerm, orders, categories]);
 
   const getCategoryName = useCallback(
     (categoryId) => {
@@ -307,31 +376,61 @@ const PTokenOrders = () => {
       return category ? category.name : "نامشخص";
     },
     [categories]
-  );
+  ); // Add categories dependency
 
   const handleShowAttribute = (order, status) => {
     setPassedOrder(order);
     setSelectedStatus(status);
-    // setIsModelOpen(true); // Called in button onClick
+    // setIsModelOpen(true); // This is called in the button's onClick directly
   };
 
-  const handleSearchChange = (e) => {
-    // Used by your SearchBar component
-    setSearchTerm(e.target.value);
-  };
+  // --- useEffect Hooks ---
+  useEffect(() => {
+    fetchData();
+    // Dependency array includes fetchData which includes its own dependencies (currentPage, debouncedSearchTerm, etc.)
+  }, [fetchData]);
 
+  // Effect to reset page to 1 when search term changes (debounced)
+  useEffect(() => {
+    // Check specifically if debouncedSearchTerm is defined to avoid triggering on initial mount
+    // and only reset if not already on page 1
+    if (debouncedSearchTerm !== undefined && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm]); // Only depend on the debounced term
+
+  // --- Remove Client-Side Search Effect ---
+  // useEffect(() => {
+  //   if (searchTerm) {
+  //     const results = orders.filter(/* ... */); // This is no longer needed
+  //     setSearchResults(results);
+  //   } else {
+  //     setSearchResults([]);
+  //   }
+  // }, [searchTerm, orders, categories]);
+  // const [searchResults, setSearchResults] = useState([]); // Remove this state
+
+  // --- Loading State ---
   if (loading && orders.length === 0) {
-    // Show initial loading only if no orders are displayed
+    // Show initial loading indicator
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="loader mr-3"></div>
         <span className="text-xl font-semibold">در حال بارگذاری...</span>
         <style jsx>{`
           .loader {
-            /* ... same style ... */
+            width: 40px;
+            height: 40px;
+            border: 4px solid #16a34a; /* Tailwind green-600 */
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
           }
           @keyframes spin {
-            /* ... same style ... */
+            to {
+              transform: rotate(360deg);
+            }
           }
         `}</style>
       </div>
@@ -341,79 +440,86 @@ const PTokenOrders = () => {
   return (
     <div className="mt-8 px-4 md:px-10 pb-10">
       {" "}
-      {/* Added pb-10 for spacing from TokenOrders */}
+      {/* Added padding bottom */}
       <h2 className="md:text-2xl text-base text-center font-Ray_black font-bold mb-4">
         لیست سفارشات تکمیلی
       </h2>
-      {/* Search Bar (using your existing component) */}
-      <div className="flex justify-center mb-4">
-        <SearchBar
-          placeholder="جستجو در سفارشات..."
+      {/* --- Search Bar Section (Similar to AddOrder) --- */}
+      <div className="flex items-center justify-center mb-4 gap-x-3">
+        <label
+          htmlFor="orderSearch"
+          className="block text-sm font-semibold whitespace-nowrap"
+        >
+          جستجو:
+        </label>
+        <input
+          type="text"
+          id="orderSearch"
           value={searchTerm}
           onChange={handleSearchChange}
-          // Add any other props your SearchBar might need, like a clear button if it has one
+          className="shadow appearance-none border rounded-md w-full md:w-1/2 lg:w-1/3 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          placeholder="نام مشتری، سفارش، کتگوری..."
         />
-        {/* Optional: Add a clear button next to your SearchBar if it doesn't have one */}
-        {searchTerm && (
+        {searchTerm && ( // Show clear button conditionally
           <button
-            onClick={() => setSearchTerm("")}
-            className="ml-2 focus:outline-none secondry-btn px-3 py-1" // Adjust styling as needed
+            onClick={() => setSearchTerm("")} // Clear the search term
+            className="focus:outline-none secondry-btn" // Use your button style
           >
             پاک کردن
           </button>
         )}
+        {/* Optional: Add search icon if desired */}
+        {/* <FaSearch className="text-gray-500 ml-[-30px]" /> */}
       </div>
-      {selectedOrders.length > 0 && ( // This was in your original code
+      {/* --- End Search Bar Section --- */}
+      {/* Keep Bill Button as is */}
+      {selectedOrders.length > 0 && (
         <button
           onClick={() => setIsTotalModelOpen(true)}
-          className="secondry-btn my-4" // Added margin like TokenOrders
+          className="secondry-btn my-4" // Added margin
         >
           نمایش بیل انتخاب شده‌ها
         </button>
       )}
-      {/* Table Section with Loading Overlay for subsequent loads/searches */}
+      {/* Table Section with Loading Overlay */}
       <div className="relative w-full mx-auto overflow-x-auto lg:overflow-hidden">
-        {loading &&
-          orders.length > 0 && ( // Show overlay when reloading/searching
-            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
-              {/* Loader animation */}
-              <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-              <span className="ml-2 text-gray-600">در حال بارگذاری...</span>
-              <style jsx>{`
-                .loader {
-                  border-top-color: #3b82f6;
-                  animation: spinner 1.2s linear infinite;
+        {/* Loading Overlay (shows during refetch/search) */}
+        {loading && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+            <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+            <span className="ml-2 text-gray-600">در حال بارگذاری...</span>
+            <style jsx>{`
+              .loader {
+                border-top-color: #3b82f6;
+                animation: spinner 1.2s linear infinite;
+              }
+              @keyframes spinner {
+                0% {
+                  transform: rotate(0deg);
                 }
-                @keyframes spinner {
-                  0% {
-                    transform: rotate(0deg);
-                  }
-                  100% {
-                    transform: rotate(360deg);
-                  }
+                100% {
+                  transform: rotate(360deg);
                 }
-              `}</style>
-            </div>
-          )}
-        <center
-          className={`w-full ${
-            loading && orders.length > 0 ? "opacity-50" : ""
-          }`}
-        >
-          {" "}
-          {/* Dim content during load */}
-          <div className="overflow-x-scroll lg:overflow-hidden w-full md:w-full rounded-lg border border-gray-300 shadow-md">
-            {" "}
-            {/* Adjusted width from original w-[420px] */}
-            <table className="w-full">
+              }
+            `}</style>
+          </div>
+        )}
+
+        {/* Table */}
+        <center className={`w-full ${loading ? "opacity-50" : ""}`}>
+          <div className="overflow-x-scroll lg:overflow-hidden w-full rounded-lg border border-gray-300 shadow-md">
+            <table className="w-full ">
               <thead className=" ">
                 <tr className="bg-green text-gray-100 text-center">
-                  {/* Headers kept as in your original PTokenOrders, with consistent padding */}
+                  {/* Keep table headers as they are */}
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     نام مشتری
                   </th>
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     نام سفارش
+                  </th>{" "}
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    پذیرش
                   </th>
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     دسته‌بندی
@@ -456,6 +562,16 @@ const PTokenOrders = () => {
                       </td>
                       <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                         {order.order_name || "در حال بارگذاری..."}
+                      </td>{" "}
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {(() => {
+                          const user = users.find(
+                            (user) => user.id === reception_name[order.id]
+                          );
+                          return user
+                            ? `${user.first_name} ${user.last_name}`
+                            : "در حال بارگذاری...";
+                        })()}
                       </td>
                       <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                         {getCategoryName(order.category) ||
@@ -518,31 +634,36 @@ const PTokenOrders = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination (Ensure totalOrders is passed correctly) */}
           <div className="mt-6">
             <Pagination
               currentPage={currentPage}
               totalOrders={totalOrders} // Use totalOrders from state
               pageSize={pageSize}
               onPageChange={onPageChange}
-              // totalPages={totalPages} // Pagination can calculate this or use totalOrders
             />
           </div>
         </center>
       </div>
-      {/* Modals (kept your original modal structure and triggering) */}
-      {isModelOpen && passedOrder /* Ensure passedOrder is available */ && (
+      {/* --- Modals (Keep Bill and Price Modals as is) --- */}
+      {isModelOpen && (
         <>
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsModelOpen(false)}
           ></div>
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            {/* Adjusted modal styling to be more like TokenOrders for consistency, but content is yours */}
-            <div className="relative bg-white rounded-lg shadow-xl w-[148mm] max-h-[90vh]">
+            {" "}
+            {/* Added padding */}
+            <div className="relative bg-white rounded-lg shadow-xl w-[148mm] max-h-[90vh] ">
+              {" "}
+              {/* Max height and scroll */}
+              {/* Close button inside */}
               <button
                 onClick={() => setIsModelOpen(false)}
                 className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"
-                aria-label="Close modal"
+                aria-label="Close modal" // Accessibility
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -559,19 +680,19 @@ const PTokenOrders = () => {
                   />
                 </svg>
               </button>
+              {/* Bill content with ID */}
               <div id="bill-content" className="p-4">
                 {" "}
-                {/* Bill content wrapper */}
+                {/* Adjust padding as needed */}
                 <Bill
-                  order={passedOrder} // Using passedOrder as per your original logic
+                  order={passedOrder}
                   orders={orders.filter((order) =>
                     selectedOrders.includes(order.id)
-                  )} // Kept from original, ensure selectedOrders is managed if this is used
+                  )} // Pass selected if needed, or just passedOrder
                 />
               </div>
+              {/* Print button outside the scrollable content, positioned relative to the modal */}
               <div className="sticky bottom-0 bg-white p-3 border-t text-center">
-                {" "}
-                {/* Print button container */}
                 <button onClick={printBill} className="secondry-btn z-50">
                   چاپ بیل
                 </button>
@@ -580,15 +701,17 @@ const PTokenOrders = () => {
           </div>
         </>
       )}
-      {/* isTotalModelOpen modal - kept from your original for selectedOrders bill */}
       {isTotalModelOpen && (
         <>
+          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsTotalModelOpen(false)}
           ></div>
+          {/* Centered Modal */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+              {/* Close button */}
               <button
                 onClick={() => setIsTotalModelOpen(false)}
                 className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"
@@ -609,24 +732,32 @@ const PTokenOrders = () => {
                   />
                 </svg>
               </button>
+              {/* Total Bill Content */}
               <div className="p-6">
+                {" "}
+                {/* Add padding */}
                 <BillTotalpage
                   orders={orders.filter((order) =>
                     selectedOrders.includes(order.id)
                   )}
+                  // Pass other necessary props if BillTotalpage requires them
                 />
               </div>
+              {/* Optional: Add print button for total bill if needed */}
+              {/* <div className="sticky bottom-0 bg-white p-3 border-t text-center">
+                             <button onClick={handlePrintTotalBill} className="secondry-btn">چاپ بیل کلی</button>
+                         </div> */}
             </div>
           </div>
         </>
       )}
       {showPrice &&
-        editingPriceId && ( // Ensure editingPriceId is set
+        editingPriceId && ( // Ensure editingPriceId is set before rendering
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
             <Price
               editingPriceId={editingPriceId}
               setShowPrice={setShowPrice}
-              onPriceUpdate={fetchData} 
+              onPriceUpdate={fetchData} // Pass fetchData to refresh after update
             />
           </div>
         )}
@@ -634,4 +765,4 @@ const PTokenOrders = () => {
   );
 };
 
-export default PTokenOrders;
+export default TokenOrders;

@@ -448,7 +448,7 @@ const OrderList = () => {
       receive_price: convertToEnglishNumbers(modalData.receive_price),
       delivery_date: modalData.deliveryDate, // Already formatted as YYYY-MM-DD
       order: selectedOrder, // The ID of the order
-      reception: decryptData(localStorage.getItem("id")),
+      reception_name: decryptData(localStorage.getItem("id")),
     };
 
     try {

@@ -32,6 +32,7 @@ const TokenOrders = () => {
   const [prices, setPrices] = useState({});
   const [receivedPrices, setReceivedPrices] = useState({});
   const [remaindedPrices, setRemaindedPrices] = useState({});
+  const [reception_name, setReception_name] = useState({});
   const [DDate, setDDate] = useState({});
   // const [totalCount, setTotalCount] = useState(0); // totalOrders is already used for this
   const [loading, setLoading] = useState(true);
@@ -40,6 +41,7 @@ const TokenOrders = () => {
   // const [totalPages, setTotalPages] = useState(1); // Can be calculated from totalOrders and pageSize
   const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
+  const [users, setUsers] = useState({});
   const [isClicked, setIsClicked] = useState(false);
 
   // --- Search State ---
@@ -65,7 +67,8 @@ const TokenOrders = () => {
       console.error("Decryption failed:", error);
       return null;
     }
-  }, []); // Empty dependency array as secretKey is constant
+  }, []);
+
   const handleClick = () => {
     setIsClicked(!isClicked);
   };
@@ -156,7 +159,16 @@ const TokenOrders = () => {
       return null;
     }
   }, [decryptData]); // Add decryptData dependency
-
+ const fetchUsers = async () => {
+   try {
+     const response = await axios.get(`${BASE_URL}/users/api/users/`);
+     setUsers(response.data);
+     console.log(response.data);
+   } catch (error) {
+     console.error("Error fetching users:", error);
+   }
+  };
+  useEffect(() => {fetchUsers()}, [])
   // --- Fetch Data Function (Modified for Search) ---
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -217,7 +229,7 @@ const TokenOrders = () => {
       const newReceived = {};
       const newRemainded = {};
       const newDeliveryDate = {};
-
+      const newReception_name = {};
       if (ordersResponse.data.results) {
         await Promise.all(
           ordersResponse.data.results.map(async (order) => {
@@ -232,11 +244,14 @@ const TokenOrders = () => {
               );
 
               const data1 = priceResponse.data;
+              console.log(priceResponse.data);
+
               if (data1 && data1.length > 0) {
                 newPrices[order.id] = data1[0].price;
                 newReceived[order.id] = data1[0].receive_price;
                 newRemainded[order.id] = data1[0].reminder_price;
                 newDeliveryDate[order.id] = data1[0].delivery_date;
+                newReception_name[order.id] = data1[0].reception_name;
               } else {
                 // console.warn(`No price data found for order ID: ${order.id}`);
               }
@@ -252,6 +267,7 @@ const TokenOrders = () => {
               newReceived[order.id] = newReceived[order.id] ?? "N/A";
               newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
               newDeliveryDate[order.id] = newDeliveryDate[order.id] ?? "N/A";
+              newReception_name[order.id] = newReception_name[order.id] ?? "N/A";
             }
           })
         );
@@ -264,6 +280,10 @@ const TokenOrders = () => {
         setRemaindedPrices((prevRemainded) => ({
           ...prevRemainded,
           ...newRemainded,
+        }));
+        setReception_name((prevReception_name) => ({
+          ...prevReception_name,
+          ...newReception_name,
         }));
         setDDate((prevDDate) => ({ ...prevDDate, ...newDeliveryDate }));
       }
@@ -497,6 +517,9 @@ const TokenOrders = () => {
                   </th>
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     نام سفارش
+                  </th>{" "}
+                  <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
+                    پذیرش
                   </th>
                   <th className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap">
                     دسته‌بندی
@@ -539,6 +562,16 @@ const TokenOrders = () => {
                       </td>
                       <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                         {order.order_name || "در حال بارگذاری..."}
+                      </td>{" "}
+                      <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
+                        {(() => {
+                          const user = users.find(
+                            (user) => user.id === reception_name[order.id]
+                          );
+                          return user
+                            ? `${user.first_name} ${user.last_name}`
+                            : "در حال بارگذاری...";
+                        })()}
                       </td>
                       <td className="border-gray-300 px-6 py-2 text-gray-700 text-sm md:text-base">
                         {getCategoryName(order.category) ||

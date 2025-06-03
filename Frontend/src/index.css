@@ -125,7 +125,7 @@ body::-webkit-scrollbar-track {
     width: 100%;
     margin: 15px; /* Adjust printer margins as needed */
     padding: 0;
-    background-color: white !important; /* Ensure background is white for print */
+    background-color: rgb(255, 255, 255) !important; /* Ensure background is white for print */
   }
 
   .no-print, .no-print * { /* Also hide children of no-print elements */

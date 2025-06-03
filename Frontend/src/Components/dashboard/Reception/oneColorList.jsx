@@ -121,17 +121,12 @@ const ColorFullList = () => {
         چاپ این صفحه
       </button>
       <div id="printableTableArea">
-        {" "}
-        {/* Div to define printable content */}
-        {/* Title for the printed page */}
         <h2 className="text-xl font-bold mb-4 text-center">
           لیست سفارشات تک رنگ (WC) - صفحه {currentPage}
         </h2>
-        {/* Loading message during page changes (hidden on print) */}
         {loading && orders.length > 0 && (
           <p className="p-4 text-center no-print">بارگذاری صفحه جدید...</p>
         )}
-        {/* Error message during page changes (hidden on print) */}
         {error && !loading && orders.length > 0 && (
           <p className="p-4 text-red-500 text-center no-print">{error}</p>
         )}
@@ -141,7 +136,6 @@ const ColorFullList = () => {
           (!loading || orders.length > 0) && ( // Render table if not loading OR if orders are already loaded
             <div className="overflow-x-auto">
               {" "}
-              {/* This div will have overflow:visible for print via CSS */}
               <table className="w-full">
                 <thead>
                   <tr className="bg-green text-gray-100 text-center">
