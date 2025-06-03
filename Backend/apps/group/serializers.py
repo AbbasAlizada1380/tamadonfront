@@ -156,6 +156,7 @@ class ReceptionOrderSerializer(serializers.ModelSerializer):
             "order",  # write-only PK
             "order_info",  # read-only details
             "price",
+            "reception_name",
             "receive_price",
             "reminder_price",
             "delivery_date",
@@ -236,8 +237,9 @@ class ReceptionOrderSerializerByPrice(serializers.ModelSerializer):
             "order",  # Read-only nested details
             "order_id",  # Write-only PK
             "price",
+            "reception_name",
             "receive_price",
-            "reminder_price",  # Read-only
+            "reminder_price",
             "delivery_date",
             "is_checked",
             "created_at",

@@ -5,6 +5,7 @@ import jdatetime
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
 
@@ -183,6 +184,9 @@ class Order(models.Model):
 class ReceptionOrder(models.Model):
     order = models.OneToOneField(
         Order, on_delete=models.CASCADE, related_name="reception_details"
+    )
+    reception_name = models.ForeignKey(
+        User, verbose_name=_("Reception Name."), on_delete=models.CASCADE
     )
     price = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00")
