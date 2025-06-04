@@ -4,10 +4,13 @@ import axios from "axios";
 import Pagination from "../../../Utilities/Pagination"; // Assuming this path is correct
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-const ColorFullList = () => {
+const OneColorList = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
+  const [orderPrice, setOrderPrice] = useState([]);
+  const [users, setUsers] = useState([]);
+
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -36,7 +39,14 @@ const ColorFullList = () => {
     },
     [secretKey]
   );
-
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/users/api/users/`);
+      setUsers(response.data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
   const fetchOrders = useCallback(
     async (page) => {
       setLoading(true);
@@ -48,18 +58,52 @@ const ColorFullList = () => {
         setTotalOrders(0);
         return;
       }
+
       try {
         const response = await axios.get(
-          `${BASE_URL}/group/orders/reception_list/today/?category__category_list=WC&pagenum=${page}&page_size=${pageSize}`, // WC category
+          `${BASE_URL}/group/orders/reception_list/today/?category__category_list=WC&pagenum=${page}&page_size=${pageSize}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }
         );
-        setOrders(response.data.results || []);
+
+        const ordersData = response.data.results || [];
+        setOrders(ordersData);
         setTotalOrders(response.data.count || 0);
         setError("");
+
+        // Initialize temp containers
+        const newPrices = {};
+
+        // Fetch prices for each order
+        await Promise.all(
+          ordersData.map(async (order) => {
+            try {
+              const priceResponse = await axios.get(
+                `${BASE_URL}/group/order-by-price/`,
+                {
+                  params: { order: order.id },
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+
+              const priceData = priceResponse.data?.[0]; // Assuming it's an array
+              if (priceData) {
+                newPrices[order.id] = priceData;
+              }
+            } catch (priceError) {
+              console.error(
+                `خطا در دریافت قیمت برای سفارش ${order.id}:`,
+                priceError
+              );
+            }
+          })
+        );
+
+        // Update state once after all fetches
+        setOrderPrice((prev) => ({ ...prev, ...newPrices }));
       } catch (err) {
         console.error("خطا در دریافت اطلاعات:", err);
         setError("دریافت اطلاعات ناموفق بود.");
@@ -94,6 +138,7 @@ const ColorFullList = () => {
   useEffect(() => {
     fetchOrders(currentPage);
     fetchCategories();
+    fetchUsers();
   }, [currentPage, fetchOrders, fetchCategories]);
 
   const handlePageChange = (page) => {
@@ -104,16 +149,14 @@ const ColorFullList = () => {
     window.print();
   };
 
-  // Initial loading state
   if (loading && orders.length === 0)
     return <p className="p-4">در حال بارگذاری...</p>;
-  // Initial error state
   if (error && orders.length === 0 && !loading)
     return <p className="p-4 text-red-500">{error}</p>;
 
   return (
     <div className="p-4">
-      {/* Main Page Title (will be hidden on print) */}
+      {/* Print Button */}
       <button
         onClick={handlePrint}
         className="no-print mb-4 ml-auto block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
@@ -121,8 +164,12 @@ const ColorFullList = () => {
         چاپ این صفحه
       </button>
       <div id="printableTableArea">
+        {" "}
+        {/* Div to define printable content */}
         <h2 className="text-xl font-bold mb-4 text-center">
-          لیست سفارشات تک رنگ (WC) - صفحه {currentPage}
+          {" "}
+          {/* Centered title for print */}
+          لیست سفارشات رنگی (WC) - صفحه {currentPage}
         </h2>
         {loading && orders.length > 0 && (
           <p className="p-4 text-center no-print">بارگذاری صفحه جدید...</p>
@@ -133,9 +180,8 @@ const ColorFullList = () => {
         {orders.length === 0 && !loading && !error ? (
           <p className="text-center">سفارشی یافت نشد.</p>
         ) : (
-          (!loading || orders.length > 0) && ( // Render table if not loading OR if orders are already loaded
+          (!loading || orders.length > 0) && ( // Render table if not loading or if orders are already loaded
             <div className="overflow-x-auto">
-              {" "}
               <table className="w-full">
                 <thead>
                   <tr className="bg-green text-gray-100 text-center">
@@ -151,7 +197,9 @@ const ColorFullList = () => {
                     <th className="border border-gray-300 px-4 py-2">
                       دیزاینر
                     </th>
-                    <th className="border border-gray-300 px-4 py-2">حالت</th>
+                    <th className="border border-gray-300 px-4 py-2">
+                      تاریخ تحویل دهی
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,7 +222,7 @@ const ColorFullList = () => {
                         {order.designer_details?.full_name || "نامشخص"}
                       </td>
                       <td className="border border-gray-300 px-4 py-2">
-                        {order.status}
+                        {orderPrice[order.id]?.delivery_date || "نامشخص"}
                       </td>
                     </tr>
                   ))}
@@ -185,12 +233,13 @@ const ColorFullList = () => {
         )}
       </div>{" "}
       {/* End of printableTableArea */}
-      {/* Pagination (hidden on print) */}
       {totalOrders > pageSize && !loading && orders.length > 0 && (
         <div className="mt-4 flex justify-center no-print">
+          {" "}
+          {/* Added no-print to pagination */}
           <Pagination
             currentPage={currentPage}
-            totalOrders={totalOrders} // Make sure Pagination component expects this prop name
+            totalItems={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
             pageSize={pageSize}
             onPageChange={handlePageChange}
           />
@@ -200,4 +249,4 @@ const ColorFullList = () => {
   );
 };
 
-export default ColorFullList;
+export default OneColorList;

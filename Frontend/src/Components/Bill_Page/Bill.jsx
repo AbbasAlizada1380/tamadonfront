@@ -6,6 +6,7 @@ import CryptoJS from "crypto-js";
 const Bill = ({ order }) => {
   const [categories, setCategories] = useState([]);
   const [designers, setDesigners] = useState([]);
+  const [users, setUsers] = useState([]);
   const [prices, setPrices] = useState([]);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const [currentTime, setCurrentTime] = useState(moment().format("HH:mm:ss"));
@@ -20,7 +21,17 @@ const Bill = ({ order }) => {
       return null;
     }
   };
-
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/users/api/users/`);
+        setUsers(response.data);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+    fetchUsers();
+  },[BASE_URL]);
   const fetchPrices = async (orderId) => {
     const token = decryptData(localStorage.getItem("auth_token"));
     if (!token) return;
@@ -98,6 +109,15 @@ const Bill = ({ order }) => {
               <span>نام دیزاینر:</span>
               <span>
                 {order.designer_details.full_name || "Unknown Designer"}
+              </span>
+            </div>
+            <div className="flex items-center gap-x-1.5">
+              <span>پذیرش</span>
+              <span>
+                {(prices.length > 0 &&
+                  users.find((user) => user.id == prices[0]?.reception_name)
+                    ?.first_name) ||
+                  "نامشخص"}
               </span>
             </div>
           </div>

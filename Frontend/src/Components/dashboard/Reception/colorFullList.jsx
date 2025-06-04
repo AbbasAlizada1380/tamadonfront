@@ -8,6 +8,9 @@ const ColorFullList = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
+  const [orderPrice, setOrderPrice] = useState([]);
+  const [users, setUsers] = useState([]);
+
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -36,41 +39,203 @@ const ColorFullList = () => {
     },
     [secretKey]
   );
+  const fetchData = useCallback(async () => {
+    const token = decryptData(localStorage.getItem("auth_token"));
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
 
-  const fetchOrders = useCallback(
-    async (page) => {
-      setLoading(true);
-      const token = decryptData(localStorage.getItem("auth_token"));
-      if (!token) {
-        setError("توکن احراز هویت یافت نشد. لطفاً دوباره وارد شوید.");
-        setLoading(false);
-        setOrders([]);
-        setTotalOrders(0);
-        return;
+      // --- Build URL with Search and Pagination ---
+      const params = new URLSearchParams({
+        pagenum: Page.toString(),
+        page_size: pageSize.toString(), // Add page_size if your API supports it
+      });
+
+      if (debouncedSearchTerm) {
+        params.append("search", debouncedSearchTerm); // Add search parameter if term exists
       }
-      try {
-        const response = await axios.get(
-          `${BASE_URL}/group/orders/reception_list/today/?category__category_list=CF&pagenum=${page}&page_size=${pageSize}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+
+      // Ensure the endpoint supports these parameters
+      const ordersUrl = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
+      // --- End URL Building ---
+
+      // Fetch orders, categories, and users (keep this structure if needed)
+      const [ordersResponse, categoriesResponse, usersResponse] =
+        await Promise.all([
+          axios.get(ordersUrl, { headers }), // Use the constructed URL
+          axios.get(`${BASE_URL}/group/categories/`, { headers }),
+          axios.get(`${BASE_URL}/users/api/users/`, { headers }), // Make sure this endpoint is correct
+        ]);
+
+      setOrders(ordersResponse.data.results || []);
+      setTotalOrders(ordersResponse.data.count || 0);
+      // setTotalCount(ordersResponse.data.count || 0); // Redundant with totalOrders
+      // setTotalPages(Math.ceil(ordersResponse.data.count / pageSize)); // Calculated in Pagination
+
+      setCategories(categoriesResponse.data || []);
+      setDesigners(usersResponse.data || []); // Ensure this state is used or remove fetch
+
+      // --- Fetch Prices Logic (Keep as is) ---
+      const newPrices = {};
+      const newReceived = {};
+      const newRemainded = {};
+      const newDeliveryDate = {};
+      const newReception_name = {};
+      if (ordersResponse.data.results) {
+        await Promise.all(
+          ordersResponse.data.results.map(async (order) => {
+            try {
+              // Consider adding a check if price data is actually needed for the current view/search results
+              const priceResponse = await axios.get(
+                `${BASE_URL}/group/order-by-price/`,
+                {
+                  params: { order: order.id },
+                  headers: { Authorization: `Bearer ${token}` }, // Pass token here too
+                }
+              );
+
+              const data1 = priceResponse.data;
+              if (data1 && data1.length > 0) {
+                newPrices[order.id] = data1[0].price;
+                newReceived[order.id] = data1[0].receive_price;
+                newRemainded[order.id] = data1[0].reminder_price;
+                newDeliveryDate[order.id] = data1[0].delivery_date;
+                newReception_name[order.id] = data1[0].reception_name;
+              } else {
+                // console.warn(`No price data found for order ID: ${order.id}`);
+              }
+            } catch (priceError) {
+              // Handle price fetch errors gracefully (e.g., don't block UI)
+              if (priceError.response?.status === 404) {
+                // console.warn(`Price data not found for order ID: ${order.id}`);
+              } else {
+                // console.error(`Error fetching price for order ID: ${order.id}`, priceError);
+              }
+              // Set default/placeholder values if needed
+              newPrices[order.id] = newPrices[order.id] ?? "N/A";
+              newReceived[order.id] = newReceived[order.id] ?? "N/A";
+              newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
+              newDeliveryDate[order.id] = newDeliveryDate[order.id] ?? "N/A";
+              newReception_name[order.id] =
+                newReception_name[order.id] ?? "N/A";
+            }
+          })
         );
-        setOrders(response.data.results || []);
-        setTotalOrders(response.data.count || 0);
-        setError("");
-      } catch (err) {
-        console.error("خطا در دریافت اطلاعات:", err);
-        setError("دریافت اطلاعات ناموفق بود.");
-        setOrders([]);
-        setTotalOrders(0);
-      } finally {
-        setLoading(false);
+        // Update price states outside the map loop for efficiency
+        setPrices((prevPrices) => ({ ...prevPrices, ...newPrices }));
+        setReceivedPrices((prevReceived) => ({
+          ...prevReceived,
+          ...newReceived,
+        }));
+        setRemaindedPrices((prevRemainded) => ({
+          ...prevRemainded,
+          ...newRemainded,
+        }));
+        setReception_name((prevReception_name) => ({
+          ...prevReception_name,
+          ...newReception_name,
+        }));
+        setDDate((prevDDate) => ({ ...prevDDate, ...newDeliveryDate }));
       }
-    },
-    [BASE_URL, decryptData, pageSize]
-  );
+    } catch (error) {
+      console.error(
+        "Error fetching data:",
+        error.response?.data || error.message || error
+      );
+      if (error.response?.status === 401) {
+        // Specific handling for unauthorized, maybe try refresh again or logout
+        console.error(
+          "Unauthorized access - token might be invalid or expired."
+        );
+        await refreshAuthToken(); // Attempt refresh again or trigger logout
+      }
+      // Set empty state on error to avoid displaying stale data
+      setOrders([]);
+      setTotalOrders(0);
+      setCategories([]);
+      setDesigners([]);
+      // Optional: Show error message to user using Swal or similar
+    } finally {
+      setLoading(false);
+    }
+  }, [
+  ]); // Add dependencies
+ const fetchUsers = async () => {
+   try {
+     const response = await axios.get(`${BASE_URL}/users/api/users/`);
+     setUsers(response.data);
+   } catch (error) {
+     console.error("Error fetching users:", error);
+   }
+  };
+const fetchOrders = useCallback(
+  async (page) => {
+    setLoading(true);
+    const token = decryptData(localStorage.getItem("auth_token"));
+    if (!token) {
+      setError("توکن احراز هویت یافت نشد. لطفاً دوباره وارد شوید.");
+      setLoading(false);
+      setOrders([]);
+      setTotalOrders(0);
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/group/orders/reception_list/today/?category__category_list=CF&pagenum=${page}&page_size=${pageSize}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const ordersData = response.data.results || [];
+      setOrders(ordersData);
+      setTotalOrders(response.data.count || 0);
+      setError("");
+
+      // Initialize temp containers
+      const newPrices = {};
+
+      // Fetch prices for each order
+      await Promise.all(
+        ordersData.map(async (order) => {
+          try {
+            const priceResponse = await axios.get(
+              `${BASE_URL}/group/order-by-price/`,
+              {
+                params: { order: order.id },
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            const priceData = priceResponse.data?.[0]; // Assuming it's an array
+            if (priceData) {
+              newPrices[order.id] = priceData;
+            }
+          } catch (priceError) {
+            console.error(
+              `خطا در دریافت قیمت برای سفارش ${order.id}:`,
+              priceError
+            );
+          }
+        })
+      );
+
+      // Update state once after all fetches
+      setOrderPrice((prev) => ({ ...prev, ...newPrices }));
+    } catch (err) {
+      console.error("خطا در دریافت اطلاعات:", err);
+      setError("دریافت اطلاعات ناموفق بود.");
+      setOrders([]);
+      setTotalOrders(0);
+    } finally {
+      setLoading(false);
+    }
+  },
+  [BASE_URL, decryptData, pageSize]
+);
+
 
   const fetchCategories = useCallback(async () => {
     let currentToken = decryptData(localStorage.getItem("auth_token"));
@@ -94,6 +259,7 @@ const ColorFullList = () => {
   useEffect(() => {
     fetchOrders(currentPage);
     fetchCategories();
+    fetchUsers();
   }, [currentPage, fetchOrders, fetchCategories]);
 
   const handlePageChange = (page) => {
@@ -152,7 +318,9 @@ const ColorFullList = () => {
                     <th className="border border-gray-300 px-4 py-2">
                       دیزاینر
                     </th>
-                    <th className="border border-gray-300 px-4 py-2">حالت</th>
+                    <th className="border border-gray-300 px-4 py-2">
+                      تاریخ تحویل دهی
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,7 +343,8 @@ const ColorFullList = () => {
                         {order.designer_details?.full_name || "نامشخص"}
                       </td>
                       <td className="border border-gray-300 px-4 py-2">
-                        {order.status}
+                        {orderPrice[order.id]?.delivery_date || "نامشخص"
+                      }
                       </td>
                     </tr>
                   ))}
