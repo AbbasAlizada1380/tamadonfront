@@ -543,7 +543,7 @@ const TokenOrders = () => {
                     حالت
                   </th>
                   <th
-                    onClick={() => handleClick()}
+                    // onClick={() => handleClick()}
                     className="border border-gray-300 px-4 py-2.5 font-semibold text-sm md:text-base whitespace-nowrap"
                   >
                     جزئیات
