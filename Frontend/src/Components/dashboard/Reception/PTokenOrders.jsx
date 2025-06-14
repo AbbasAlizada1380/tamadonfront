@@ -37,10 +37,8 @@ const TokenOrders = () => {
   const [selectedStatus, setSelectedStatus] = useState({});
   const [users, setUsers] = useState({});
   const [isClicked, setIsClicked] = useState(false);
-
-  const [searchTerm, setSearchTerm] = useState(""); // Raw search input
-  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API call
-
+  const [searchTerm, setSearchTerm] = useState(""); 
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -134,14 +132,12 @@ const TokenOrders = () => {
       ).toString();
       localStorage.setItem("auth_token", encryptedToken);
       console.log("Token refreshed successfully.");
-      return newAuthToken; // Return the raw (decrypted) new token for immediate use
+      return newAuthToken;
     } catch (error) {
       console.error("Unable to refresh token", error);
-      // Handle logout or redirect to login if refresh fails
-      // e.g., localStorage.clear(); window.location.href = '/login';
       return null;
     }
-  }, [decryptData]); // Add decryptData dependency
+  }, [decryptData]); 
  const fetchUsers = async () => {
    try {
      const response = await axios.get(`${BASE_URL}/users/api/users/`);
@@ -152,7 +148,6 @@ const TokenOrders = () => {
    }
   };
   useEffect(() => {fetchUsers()}, [])
-  // --- Fetch Data Function (Modified for Search) ---
   const fetchData = useCallback(async () => {
     setLoading(true);
     let token = getAuthToken();
@@ -176,22 +171,17 @@ const TokenOrders = () => {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-
-      // --- Build URL with Search and Pagination ---
       const params = new URLSearchParams({
         pagenum: currentPage.toString(),
-        page_size: pageSize.toString(), // Add page_size if your API supports it
+        page_size: pageSize.toString(),
       });
 
       if (debouncedSearchTerm) {
-        params.append("search", debouncedSearchTerm); // Add search parameter if term exists
+        params.append("search", debouncedSearchTerm); 
       }
 
-      // Ensure the endpoint supports these parameters
       const ordersUrl = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
-      // --- End URL Building ---
 
-      // Fetch orders, categories, and users (keep this structure if needed)
       const [ordersResponse, categoriesResponse, usersResponse] =
         await Promise.all([
           axios.get(ordersUrl, { headers }), // Use the constructed URL
@@ -201,13 +191,9 @@ const TokenOrders = () => {
 
       setOrders(ordersResponse.data.results || []);
       setTotalOrders(ordersResponse.data.count || 0);
-      // setTotalCount(ordersResponse.data.count || 0); // Redundant with totalOrders
-      // setTotalPages(Math.ceil(ordersResponse.data.count / pageSize)); // Calculated in Pagination
-
       setCategories(categoriesResponse.data || []);
       setDesigners(usersResponse.data || []); // Ensure this state is used or remove fetch
 
-      // --- Fetch Prices Logic (Keep as is) ---
       const newPrices = {};
       const newReceived = {};
       const newRemainded = {};
@@ -217,7 +203,6 @@ const TokenOrders = () => {
         await Promise.all(
           ordersResponse.data.results.map(async (order) => {
             try {
-              // Consider adding a check if price data is actually needed for the current view/search results
               const priceResponse = await axios.get(
                 `${BASE_URL}/group/order-by-price/`,
                 {
@@ -236,12 +221,9 @@ const TokenOrders = () => {
                 newDeliveryDate[order.id] = data1[0].delivery_date;
                 newReception_name[order.id] = data1[0].reception_name;
               } else {
-                // console.warn(`No price data found for order ID: ${order.id}`);
               }
             } catch (priceError) {
-              // Handle price fetch errors gracefully (e.g., don't block UI)
               if (priceError.response?.status === 404) {
-                // console.warn(`Price data not found for order ID: ${order.id}`);
               } else {
                 // console.error(`Error fetching price for order ID: ${order.id}`, priceError);
               }
