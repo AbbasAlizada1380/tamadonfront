@@ -5,21 +5,17 @@ import Bill from "../../Bill_Page/Bill";
 import CryptoJS from "crypto-js";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import vazirmatnFont from "/vazirmatnBase64.txt"; // Ensure this is a valid Base64 font
-// import SearchBar from "../../../Utilities/Searching"; // Using direct input for clarity like AddOrder
-import { FaSearch } from "react-icons/fa"; // Import search icon
-import { useDebounce } from "use-debounce"; // Import useDebounce
-import Pagination from "../../../Utilities/Pagination"; // Adjust path if needed
+import vazirmatnFont from "/vazirmatnBase64.txt"; 
+import { FaSearch } from "react-icons/fa";
+import { useDebounce } from "use-debounce"; 
+import Pagination from "../../../Utilities/Pagination"; 
 import { CiEdit } from "react-icons/ci";
 import { FaCheck, FaEdit } from "react-icons/fa";
 import { Price } from "./Price";
-
 import Swal from "sweetalert2";
 import BillTotalpage from "../../Bill_Page/BillTotalpage";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-
-// Define the API endpoint for fetching orders (similar to AddOrder)
-const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/reception_list/`; // Or adjust if a different endpoint is needed for TokenOrders search
+const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/reception_list/`; 
 
 const TokenOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -34,17 +30,14 @@ const TokenOrders = () => {
   const [remaindedPrices, setRemaindedPrices] = useState({});
   const [reception_name, setReception_name] = useState({});
   const [DDate, setDDate] = useState({});
-  // const [totalCount, setTotalCount] = useState(0); // totalOrders is already used for this
   const [loading, setLoading] = useState(true);
-  const pageSize = 20; // Keep your desired page size
+  const pageSize = 20;
   const [currentPage, setCurrentPage] = useState(1);
-  // const [totalPages, setTotalPages] = useState(1); // Can be calculated from totalOrders and pageSize
   const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
   const [users, setUsers] = useState({});
   const [isClicked, setIsClicked] = useState(false);
 
-  // --- Search State ---
   const [searchTerm, setSearchTerm] = useState(""); // Raw search input
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API call
 
@@ -53,10 +46,8 @@ const TokenOrders = () => {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const secretKey = "TET4-1";
 
-  // --- Decryption Function (Keep as is) ---
   const decryptData = useCallback((hashedData) => {
     if (!hashedData) {
-      // console.error("No data to decrypt"); // Keep console logs minimal if preferred
       return null;
     }
     try {
@@ -72,9 +63,7 @@ const TokenOrders = () => {
   const handleClick = () => {
     setIsClicked(!isClicked);
   };
-  // --- Helper Functions (Keep printBill, getAuthToken, isTokenExpired, refreshAuthToken as is) ---
   const printBill = async () => {
-    // ... (keep existing printBill logic)
     const element = document.getElementById("bill-content");
     if (!element) {
       console.error("Bill content not found!");
@@ -82,10 +71,8 @@ const TokenOrders = () => {
     }
 
     try {
-      // A5 Portrait: 148mm x 210mm
       const billWidth = 148;
       const billHeight = 210;
-
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -130,7 +117,6 @@ const TokenOrders = () => {
 
   const refreshAuthToken = useCallback(async () => {
     try {
-      // Assuming refresh token logic exists and is stored securely
       const refreshToken = decryptData(localStorage.getItem("refresh_token")); // Or however you store it
       if (!refreshToken) throw new Error("Refresh token not found.");
 
@@ -142,14 +128,11 @@ const TokenOrders = () => {
       );
 
       const newAuthToken = response.data.access;
-      // Encrypt and store the new token (ensure encryption is consistent)
       const encryptedToken = CryptoJS.AES.encrypt(
         JSON.stringify(newAuthToken),
         secretKey
       ).toString();
       localStorage.setItem("auth_token", encryptedToken);
-      // Optionally update refresh token if backend sends a new one
-      // if (response.data.refresh) { ... }
       console.log("Token refreshed successfully.");
       return newAuthToken; // Return the raw (decrypted) new token for immediate use
     } catch (error) {
