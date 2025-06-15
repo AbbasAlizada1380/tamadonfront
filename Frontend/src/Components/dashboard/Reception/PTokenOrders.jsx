@@ -15,7 +15,9 @@ import { Price } from "./Price";
 import Swal from "sweetalert2";
 import BillTotalpage from "../../Bill_Page/BillTotalpage";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/reception_list/`; 
+
+// Define the API endpoint for fetching orders (similar to AddOrder)
+const ORDERS_API_ENDPOINT = `${BASE_URL}/group/group/orders/reception_list/`; // Or adjust if a different endpoint is needed for TokenOrders search
 
 const TokenOrders = () => {
   const [orders, setOrders] = useState([]);

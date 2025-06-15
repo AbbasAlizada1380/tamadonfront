@@ -53,6 +53,7 @@ const CategoryManagement = () => {
     try {
       const response = await axios.get(`${BASE_URL}/group/categories/`);
       setCategories(response.data);
+      console.log(response);
       setFilteredCategories(response.data);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -103,9 +104,8 @@ const CategoryManagement = () => {
           `${BASE_URL}/group/categories/`,
           {
             name: categoryName,
-            stages: selectedRoles, 
+            stages: selectedRoles,
             category_list: categoryList, // ✅ Include category list in creation
-
           },
           { headers } // ✅ Pass headers
         );
@@ -180,13 +180,12 @@ const CategoryManagement = () => {
     }
   };
 
-const handleEdit = (category) => {
-  setCategoryName(category.name);
-  setSelectedRoles(category.stages || []);
-  setCategoryList(category.category_list || ""); // ✅ This line fixes the issue
-  setEditingCategory(category);
-};
-
+  const handleEdit = (category) => {
+    setCategoryName(category.name);
+    setSelectedRoles(category.stages || []);
+    setCategoryList(category.category_list || ""); // ✅ This line fixes the issue
+    setEditingCategory(category);
+  };
 
   const handleSearch = (e) => {
     const term = e.target.value;
@@ -394,13 +393,13 @@ const handleEdit = (category) => {
         </table>
       </div>
       {/* Pagination Component */}
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      )}
+
+      <Pagination
+        currentPage={currentPage}
+        totalOrders={categories.length}
+        onPageChange={setCurrentPage}
+        pageSize={itemsPerPage}
+      />
     </div>
   );
 };
