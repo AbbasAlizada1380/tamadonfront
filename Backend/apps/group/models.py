@@ -146,7 +146,6 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     attributes = models.JSONField(default=dict, null=True, blank=True)
-
     def __str__(self):
         display_key = (
             self.secret_key
@@ -179,7 +178,6 @@ class Order(models.Model):
                 )
         else:
             super().save(*args, **kwargs)
-
 
 class ReceptionOrder(models.Model):
     order = models.OneToOneField(

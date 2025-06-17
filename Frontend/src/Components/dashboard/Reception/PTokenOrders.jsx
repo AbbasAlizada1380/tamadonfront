@@ -225,9 +225,7 @@ const TokenOrders = () => {
             } catch (priceError) {
               if (priceError.response?.status === 404) {
               } else {
-                // console.error(`Error fetching price for order ID: ${order.id}`, priceError);
               }
-              // Set default/placeholder values if needed
               newPrices[order.id] = newPrices[order.id] ?? "N/A";
               newReceived[order.id] = newReceived[order.id] ?? "N/A";
               newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
@@ -236,7 +234,6 @@ const TokenOrders = () => {
             }
           })
         );
-        // Update price states outside the map loop for efficiency
         setPrices((prevPrices) => ({ ...prevPrices, ...newPrices }));
         setReceivedPrices((prevReceived) => ({
           ...prevReceived,
@@ -258,18 +255,15 @@ const TokenOrders = () => {
         error.response?.data || error.message || error
       );
       if (error.response?.status === 401) {
-        // Specific handling for unauthorized, maybe try refresh again or logout
         console.error(
           "Unauthorized access - token might be invalid or expired."
         );
         await refreshAuthToken(); // Attempt refresh again or trigger logout
       }
-      // Set empty state on error to avoid displaying stale data
       setOrders([]);
       setTotalOrders(0);
       setCategories([]);
       setDesigners([]);
-      // Optional: Show error message to user using Swal or similar
     } finally {
       setLoading(false);
     }
@@ -279,20 +273,17 @@ const TokenOrders = () => {
     debouncedSearchTerm,
     getAuthToken,
     refreshAuthToken,
-  ]); // Add dependencies
+  ]); 
 
-  // --- Event Handlers (Keep existing handlers, add search handler) ---
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    // No need to set page here, the useEffect below handles it
   };
 
   const handleComplete = async (id) => {
-    // ... (keep existing handleComplete logic)
     try {
       const authToken = decryptData(localStorage.getItem("auth_token"));
       if (!authToken) {
@@ -341,42 +332,24 @@ const TokenOrders = () => {
       return category ? category.name : "نامشخص";
     },
     [categories]
-  ); // Add categories dependency
+  ); 
 
   const handleShowAttribute = (order, status) => {
     setPassedOrder(order);
     setSelectedStatus(status);
-    // setIsModelOpen(true); // This is called in the button's onClick directly
   };
 
-  // --- useEffect Hooks ---
   useEffect(() => {
     fetchData();
-    // Dependency array includes fetchData which includes its own dependencies (currentPage, debouncedSearchTerm, etc.)
   }, [fetchData]);
 
-  // Effect to reset page to 1 when search term changes (debounced)
   useEffect(() => {
-    // Check specifically if debouncedSearchTerm is defined to avoid triggering on initial mount
-    // and only reset if not already on page 1
     if (debouncedSearchTerm !== undefined && currentPage !== 1) {
       setCurrentPage(1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchTerm]); // Only depend on the debounced term
 
-  // --- Remove Client-Side Search Effect ---
-  // useEffect(() => {
-  //   if (searchTerm) {
-  //     const results = orders.filter(/* ... */); // This is no longer needed
-  //     setSearchResults(results);
-  //   } else {
-  //     setSearchResults([]);
-  //   }
-  // }, [searchTerm, orders, categories]);
-  // const [searchResults, setSearchResults] = useState([]); // Remove this state
-
-  // --- Loading State ---
+ 
   if (loading && orders.length === 0) {
     // Show initial loading indicator
     return (
