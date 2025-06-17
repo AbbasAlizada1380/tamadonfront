@@ -477,9 +477,7 @@ const OrderList = () => {
         // Handle error or default behavior
       }
 
-      // 2. Create the price record
-      console.log(pricePayload);
-      
+      // 2. Create the price record      
       const priceResponse = await axios.post(
         `${BASE_URL}/group/reception-orders/`, // Endpoint for creating price/reception info
         pricePayload,

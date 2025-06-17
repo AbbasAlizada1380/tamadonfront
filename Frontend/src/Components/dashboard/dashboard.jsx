@@ -67,6 +67,8 @@ import BillTotal from "./Reception/BillTotal.jsx";
 import PTokenOrders from "./Reception/PTokenOrders.jsx";
 import OneColorList from "./Reception/oneColorList.jsx";
 import ColorFullList from "./Reception/colorFullList.jsx";
+import VisitCard from "./Reception/VisitCard.jsx";
+import ReceivingVisitCard from "./designer/ReceivingVisitCard.jsx";
 const Dashboard = () => {
   // Modal visibility state
   const secretKey = "TET4-1"; // Use a strong secret key
@@ -235,6 +237,7 @@ const Dashboard = () => {
       "Logout",
       "ReceivedList",
       "OrderListSuperDesigner",
+      // "ReceivingVisitCard",
     ],
     0: ["defaultPage", "User Management", "data", "designerChart", "Logout"],
     2: [
@@ -244,6 +247,7 @@ const Dashboard = () => {
       "PTokenOrders",
       "OneColorList",
       "ColorFullList",
+      // "VisitCard",
       "Logout",
     ],
     4: ["defaultPage", "ReceivedList", "Logout"],
@@ -329,6 +333,11 @@ const Dashboard = () => {
       icon: <FaClipboardList />,
       label: "سفارشات گرفته شده",
     },
+    ReceivingVisitCard: {
+      component: "ReceivingVisitCard",
+      icon: <FaClipboardList />,
+      label: " ویزیت کارت دریافتی",
+    },
     PTokenOrders: {
       component: "PTokenOrders",
       icon: <FaClipboardList />,
@@ -343,6 +352,11 @@ const Dashboard = () => {
       component: "ColorFullList",
       icon: <FaClipboardList />,
       label: " لیست سفارشات رنگی",
+    },
+    VisitCard: {
+      component: "VisitCard",
+      icon: <FaClipboardList />,
+      label: "لیست ویزیت کارت",
     },
 
     "Add Order": {
@@ -441,17 +455,6 @@ const Dashboard = () => {
   const filteredMenuItems = Object.keys(menuItems).filter((item) =>
     (access[role] || []).includes(item)
   );
-
-  // Function to toggle the sidebar
-  const handleSidebarToggle = () => {
-    setIsSidebarExpanded((prevState) => !prevState);
-  };
-  const handleWebsiteManagementToggle = () => {
-    setIsWebsiteManagementOpen(!isWebsiteManagementOpen);
-  };
-  const handleCategoryManagementToggle = () => {
-    setIsCategoryManagementOpen(!isCategoryManagementOpen);
-  };
   // Render the appropriate component based on the active menu
   const renderComponent = () => {
     if (activeComponent === "category") return <Category />;
@@ -481,6 +484,8 @@ const Dashboard = () => {
         return <TokenOrders />;
       case "PTokenOrders":
         return <PTokenOrders />;
+      case "ReceivingVisitCard":
+        return <ReceivingVisitCard />;
       case "data":
         return <ChartGraph />;
       case "Logout":
@@ -493,6 +498,8 @@ const Dashboard = () => {
         return <AddOrder />;
       case "OneColorList":
         return <OneColorList />;
+      case "VisitCard":
+        return <VisitCard />;
       case "ColorFullList":
         return <ColorFullList />;
       case "UserManagement":
