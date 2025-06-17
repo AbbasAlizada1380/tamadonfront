@@ -97,32 +97,26 @@ class AttributeValue(models.Model):
         ordering = ["attribute", "attribute_value"]
 
 
-def generate_secret_key_based_on_id(order_id):
-    """Generates a secret key based on order ID and current Jalali date."""
-    if not order_id:
-        return None
+def generate_secret_key():
+    """Generates a sequential unique secret key starting from 1."""
     try:
-        current_jalali_date = jdatetime.datetime.now()
-        last_digit_of_year = str(current_jalali_date.year)[-1]
-        month_part = current_jalali_date.strftime("%m")
-        day_part = current_jalali_date.strftime("%d")
-        first_three_digits = str(order_id).zfill(3)
-        secret_key = f"{first_three_digits}{last_digit_of_year}{month_part}{day_part}"
+        # Get the last order created and its secret_key
+        last_order = Order.objects.order_by("-secret_key").first()
+        if last_order:
+            print(
+                f"Last secret_key: {last_order.secret_key} (type: {type(last_order.secret_key)})"
+            )
+            new_secret_key = int(last_order.secret_key) + 1
+        else:
+            # Start from 1 if no orders exist yet
+            new_secret_key = 1
 
-        temp_key = secret_key
-        counter = 1
-        while Order.objects.filter(secret_key=temp_key).exists():
-            temp_key = f"{secret_key[:3]}{str(int(secret_key[3:]) + counter)[-3:]}"
-            counter += 1
-            if counter > 20:
-                print(
-                    f"ERROR: Could not generate unique secret key for order ID {order_id} after multiple attempts."
-                )
-                return None
-        return temp_key
+        while Order.objects.filter(secret_key=new_secret_key).exists():
+            new_secret_key += 1
+
+        return new_secret_key
     except Exception as e:
-        print(f"ERROR generating secret key for order ID {order_id}: {e}")
-        return None
+        raise ValidationError(f"ERROR generating secret key: {e}")
 
 
 class Order(models.Model):
@@ -136,8 +130,7 @@ class Order(models.Model):
         blank=True,
     )
     description = models.TextField(blank=True)
-    secret_key = models.CharField(
-        max_length=40,
+    secret_key = models.IntegerField(
         editable=False,
         unique=True,
     )
@@ -147,12 +140,7 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     attributes = models.JSONField(default=dict, null=True, blank=True)
     def __str__(self):
-        display_key = (
-            self.secret_key
-            if self.secret_key and "temp-" not in self.secret_key
-            else f"ID:{self.pk}"
-        )
-        return f"Order {display_key}: {self.order_name} by {self.customer_name}"
+        return f"Order {self.secret_key}: {self.order_name} by {self.customer_name}"
 
     class Meta:
         verbose_name = "Order"
@@ -161,23 +149,14 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         is_creating = self._state.adding
+
         if is_creating and not self.secret_key:
-            temp_key = f"temp-{uuid.uuid4().hex[:12]}"
-            self.secret_key = temp_key
+            # Generate the secret key before saving the object
+            self.secret_key = generate_secret_key()
+            print(f"Generated secret key: {self.secret_key}")  # Debugging
 
-            super().save(*args, **kwargs)
-
-            final_key = generate_secret_key_based_on_id(self.id)
-
-            if final_key:
-                self.secret_key = final_key
-                Order.objects.filter(pk=self.pk).update(secret_key=final_key)
-            else:
-                print(
-                    f"Warning: Final secret key generation failed for Order ID {self.id}. Record saved with temp key: {temp_key}"
-                )
-        else:
-            super().save(*args, **kwargs)
+        # Save the object with the generated secret key
+        super().save(*args, **kwargs)
 
 class ReceptionOrder(models.Model):
     order = models.OneToOneField(

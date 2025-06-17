@@ -159,7 +159,7 @@ const OneColorList = () => {
       {/* Print Button */}
       <button
         onClick={handlePrint}
-        className="no-print mb-4 ml-auto block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        className="no-print bg-green text-white px-7 font-bold py-2 rounded hover:bg-green/90"
       >
         چاپ این صفحه
       </button>
@@ -203,29 +203,41 @@ const OneColorList = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
-                    >
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.customer_name}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.order_name}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {categories.find((cat) => cat.id === order.category)
-                          ?.category_list || "نامشخص"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {order.designer_details?.full_name || "نامشخص"}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {orderPrice[order.id]?.delivery_date || "نامشخص"}
+                  {orders.length > 0 ? (
+                    orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="text-center font-bold border-b border-gray-200 bg-white hover:bg-gray-200 transition-all"
+                      >
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.customer_name}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.order_name}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {categories.find((cat) => cat.id === order.category)
+                            ?.category_list || "نامشخص"}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {order.designer_details?.full_name || "نامشخص"}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {orderPrice[order.id]?.delivery_date || "نامشخص"}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        {error ? (
+                          <span className="text-red-500">{error}</span>
+                        ) : (
+                          "سفارشی یافت نشد."
+                        )}
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -239,10 +251,10 @@ const OneColorList = () => {
           {/* Added no-print to pagination */}
           <Pagination
             currentPage={currentPage}
-            totalItems={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
+            totalOrders={totalOrders} // Renamed from totalOrders to totalItems if Pagination expects that
             pageSize={pageSize}
             onPageChange={handlePageChange}
-          />
+          />          
         </div>
       )}
     </div>
