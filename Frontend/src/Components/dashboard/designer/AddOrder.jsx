@@ -497,7 +497,7 @@ const AddOrder = () => {
                       {field.name}
                     </label>
                     {field.attribute_type === "input" && (
-                      <input
+                      <textarea
                         type="text"
                         id={field.name}
                         name={field.name}
