@@ -14,6 +14,7 @@ class Category(models.Model):
     class CategoryList(models.TextChoices):
         COLOR_FULL = "CF", "Color Full"
         WITHOUT_COLOR = "WC", "Without Color"
+        VISIT_CARD = "VS", "Visit Card"
 
     name = models.CharField(max_length=255)
     stages = models.JSONField(default=list)
