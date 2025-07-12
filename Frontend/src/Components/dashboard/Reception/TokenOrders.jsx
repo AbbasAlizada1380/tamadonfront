@@ -385,7 +385,7 @@ const TokenOrders = () => {
   useEffect(() => {
     fetchData();
     // Dependency array includes fetchData which includes its own dependencies (currentPage, debouncedSearchTerm, etc.)
-  }, [fetchData]);
+  }, [fetchData,showPrice]);
 
   // Effect to reset page to 1 when search term changes (debounced)
   useEffect(() => {

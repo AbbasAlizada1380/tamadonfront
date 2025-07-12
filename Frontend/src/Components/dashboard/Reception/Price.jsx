@@ -30,6 +30,7 @@ export const Price = ({ editingPriceId, setShowPrice }) => {
     reminder_price: "",
     delivery_date: "",
     order_id: editingPriceId,
+    reception_name:""
   });
 
   const [loading, setLoading] = useState(false);

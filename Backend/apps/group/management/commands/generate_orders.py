@@ -26,7 +26,7 @@ class Command(BaseCommand):
             category = random.choice(categories)  # Random category
             status = random.choice(
                 [
-                "Delivery" ]
+                "Head_of_designers" ]
             )
             order = Order(
                 order_name=order_name,

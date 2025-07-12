@@ -5,10 +5,10 @@ import Bill from "../../Bill_Page/Bill";
 import CryptoJS from "crypto-js";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import vazirmatnFont from "/vazirmatnBase64.txt"; 
+import vazirmatnFont from "/vazirmatnBase64.txt";
 import { FaSearch } from "react-icons/fa";
-import { useDebounce } from "use-debounce"; 
-import Pagination from "../../../Utilities/Pagination"; 
+import { useDebounce } from "use-debounce";
+import Pagination from "../../../Utilities/Pagination";
 import { CiEdit } from "react-icons/ci";
 import { FaCheck, FaEdit } from "react-icons/fa";
 import { Price } from "./Price";
@@ -39,7 +39,7 @@ const TokenOrders = () => {
   const [selectedStatus, setSelectedStatus] = useState({});
   const [users, setUsers] = useState({});
   const [isClicked, setIsClicked] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(""); 
+  const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
@@ -139,17 +139,18 @@ const TokenOrders = () => {
       console.error("Unable to refresh token", error);
       return null;
     }
-  }, [decryptData]); 
- const fetchUsers = async () => {
-   try {
-     const response = await axios.get(`${BASE_URL}/users/api/users/`);
-     setUsers(response.data);
-     console.log(response.data);
-   } catch (error) {
-     console.error("Error fetching users:", error);
-   }
+  }, [decryptData]);
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/users/api/users/`);
+      setUsers(response.data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
   };
-  useEffect(() => {fetchUsers()}, [])
+  useEffect(() => {
+    fetchUsers();
+  }, []);
   const fetchData = useCallback(async () => {
     setLoading(true);
     let token = getAuthToken();
@@ -179,7 +180,7 @@ const TokenOrders = () => {
       });
 
       if (debouncedSearchTerm) {
-        params.append("search", debouncedSearchTerm); 
+        params.append("search", debouncedSearchTerm);
       }
 
       const ordersUrl = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
@@ -214,8 +215,6 @@ const TokenOrders = () => {
               );
 
               const data1 = priceResponse.data;
-              console.log(priceResponse.data);
-
               if (data1 && data1.length > 0) {
                 newPrices[order.id] = data1[0].price;
                 newReceived[order.id] = data1[0].receive_price;
@@ -232,7 +231,8 @@ const TokenOrders = () => {
               newReceived[order.id] = newReceived[order.id] ?? "N/A";
               newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
               newDeliveryDate[order.id] = newDeliveryDate[order.id] ?? "N/A";
-              newReception_name[order.id] = newReception_name[order.id] ?? "N/A";
+              newReception_name[order.id] =
+                newReception_name[order.id] ?? "N/A";
             }
           })
         );
@@ -343,7 +343,8 @@ const TokenOrders = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // Dependency array includes fetchData which includes its own dependencies (currentPage, debouncedSearchTerm, etc.)
+  }, [fetchData,showPrice]);
 
   useEffect(() => {
     if (debouncedSearchTerm !== undefined && currentPage !== 1) {
