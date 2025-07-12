@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import User, UserProfile, Contact
+from .paginations import UserPagination
 from .serializers import (
     CreateUserSerializer,
     MassageSerializer,
@@ -42,6 +43,7 @@ User = get_user_model()
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    pagination_class = UserPagination # Use the custom pagination class
     permission_classes = [
         AllowAny
     ]  

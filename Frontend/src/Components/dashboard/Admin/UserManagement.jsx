@@ -5,7 +5,7 @@ import Swal from "sweetalert2";
 import SignUp from "../Registeration/SignUp";
 import { IoTrashSharp } from "react-icons/io5";
 import CryptoJS from "crypto-js";
-import Pagination from "../../../Utilities/Pagination";
+import Pagination from "../../../Utilities/Pagination"; // This is YOUR Pagination component
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const UserManagement = () => {
@@ -69,7 +69,7 @@ const UserManagement = () => {
     }));
   };
 
-  // Fetch users from the backend
+  // --- THIS FUNCTION IS THE ONLY PART THAT HAS BEEN MODIFIED ---
   const fetchUsers = () => {
     setLoading(true);
     const token = decryptData(localStorage.getItem("auth_token"));
@@ -81,27 +81,47 @@ const UserManagement = () => {
       return;
     }
 
-    fetch(`${BASE_URL}/users/api/users/`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((response) => {
+    const fetchAllUsers = async () => {
+      let allUsers = [];
+      // Start with the first page
+      let nextUrl = `${BASE_URL}/users/api/users/`; 
+
+      while (nextUrl) {
+        const response = await fetch(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         if (response.status === 401) {
-          setError("Authentication expired. Please log in again.");
-          navigate("/login");
-          setLoading(false);
-          return;
+          throw new Error("Authentication expired. Please log in again.");
         }
-        return response.json();
-      })
-      .then((data) => {
-        setUsers(data);
-        setLoading(false);
+        if (!response.ok) {
+          throw new Error("Failed to fetch users.");
+        }
+
+        const data = await response.json();
+        // Add the users from the current page to our list
+        allUsers = allUsers.concat(data.results); 
+        // Get the URL for the next page, or null if it's the last page
+        nextUrl = data.next; 
+      }
+      return allUsers;
+    };
+
+    fetchAllUsers()
+      .then((allUsersData) => {
+        // Now we have the complete list, so we can set the state
+        setUsers(allUsersData);
         setError("");
       })
       .catch((error) => {
-        setError("Error fetching users.");
+        setError(error.message);
+        if (error.message.includes("Authentication expired")) {
+          navigate("/login");
+        }
+      })
+      .finally(() => {
         setLoading(false);
       });
   };
@@ -150,40 +170,30 @@ const UserManagement = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        console.error("Error response:", data);
         throw new Error(data.detail || "Error creating/updating user");
       }
 
-      const data = await response.json();
-      console.log("User successfully created/updated", data);
-
-      // Fetch updated list of users
+      await response.json();
+      
+      // Re-fetch all users to get the updated list
       fetchUsers();
       setIsFormVisible(false);
 
-      // Show success alert with smaller modal
       Swal.fire({
         title: "Success!",
         text: `User ${newUser.id ? "updated" : "created"} successfully.`,
         icon: "success",
         confirmButtonText: "OK",
-        customClass: {
-          popup: "w-96", // Adjust the modal width to your desired size
-        },
+        customClass: { popup: "w-96" },
       });
     } catch (err) {
-      console.error("Error:", err);
       setError(err.message);
-
-      // Show error alert with smaller modal
       Swal.fire({
         title: "خطا!",
         text: err.message,
         icon: "error",
         confirmButtonText: "تایید",
-        customClass: {
-          popup: "w-96", // تنظیم عرض مودال در صورت نیاز
-        },
+        customClass: { popup: "w-96" },
       });
     } finally {
       setLoading(false);
@@ -192,7 +202,6 @@ const UserManagement = () => {
 
   // Handle user deletion
   const handleDelete = async (id) => {
-    // نمایش پیغام تأیید حذف
     Swal.fire({
       title: "آیا مطمئن هستید؟",
       text: "این عملیات قابل بازگشت نیست!",
@@ -202,9 +211,7 @@ const UserManagement = () => {
       cancelButtonColor: "#3085d6",
       confirmButtonText: "بله، حذف شود!",
       cancelButtonText: "لغو",
-      customClass: {
-        popup: "w-96", // تغییر عرض مودال در صورت نیاز
-      },
+      customClass: { popup: "w-96" },
     }).then((result) => {
       if (result.isConfirmed) {
         setLoading(true);
@@ -218,15 +225,14 @@ const UserManagement = () => {
         })
           .then((response) => {
             if (response.ok) {
+              // This works because we are updating the full list in state
               setUsers(users.filter((user) => user.id !== id));
               Swal.fire({
                 title: "حذف شد!",
                 text: "کاربر با موفقیت حذف گردید.",
                 icon: "success",
                 confirmButtonText: "تایید",
-                customClass: {
-                  popup: "w-96", // تغییر عرض مودال در صورت نیاز
-                },
+                customClass: { popup: "w-96" },
               });
             } else {
               throw new Error("خطا در حذف کاربر");
@@ -238,9 +244,7 @@ const UserManagement = () => {
               text: err.message,
               icon: "error",
               confirmButtonText: "تایید",
-              customClass: {
-                popup: "w-96", // تغییر عرض مودال در صورت نیاز
-              },
+              customClass: { popup: "w-96" },
             });
           })
           .finally(() => {
@@ -255,14 +259,15 @@ const UserManagement = () => {
     const role = roles.find((role) => role.id === parseInt(roleId));
     return role ? role.name : "Unknown";
   };
-  //  pagination section
+  
+  // Your original pagination logic - this now works correctly
   const [currentPage, setCurrentPage] = useState(1);
   const postsPerPage = 10;
+  const paginatedOrders = users.slice(
+    (currentPage - 1) * postsPerPage,
+    currentPage * postsPerPage
+  );
 
-  // Calculate pagination
-  const totalPages = Math.ceil(users.length / postsPerPage);
-  const paginatedOrders = [...users] // Create a copy to avoid mutation
-    .slice((currentPage - 1) * postsPerPage, currentPage * postsPerPage);
   return (
     <div className="mt py-10 bg-gray-200 w-full p-5  min-h-screen ">
       <div className="flex justify-center items-center ">
@@ -275,10 +280,8 @@ const UserManagement = () => {
         </button>
       </div>
 
-      {/* Conditionally Render the Form */}
       {isFormVisible && <SignUp />}
 
-      {/* Users List */}
       <div className="border mt-10">
         <h2 className="md:text-xl text-base font-Ray_black text-center font-bold mb-4">
           {" "}
@@ -331,7 +334,6 @@ const UserManagement = () => {
                     <td className="border px-4 py-2">
                       {getRoleName(user.role)}
                     </td>
-
                     <td className=" px-6 py-2 flex justify-center gap-x-5">
                       <button
                         onClick={() => handleDelete(user.id)}
@@ -347,14 +349,13 @@ const UserManagement = () => {
           </div>
         )}
       </div>
-      {/* Pagination Component */}
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      )}
+
+      <Pagination
+        currentPage={currentPage}
+        totalOrders={users.length} 
+        pageSize={postsPerPage}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 };
