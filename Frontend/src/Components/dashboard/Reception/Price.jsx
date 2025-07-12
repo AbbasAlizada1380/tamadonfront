@@ -97,6 +97,7 @@ export const Price = ({ editingPriceId, setShowPrice }) => {
         receive_price: receivePriceValue,
         reminder_price: String(priceValue - receivePriceValue),
         delivery_date: modalData.delivery_date,
+        reception_name: decryptData(localStorage.getItem("id")),
       };
 
       await axios.put(
