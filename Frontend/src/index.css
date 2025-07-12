@@ -201,3 +201,8 @@ body::-webkit-scrollbar-track {
     display: table-footer-group !important; /* If you had a tfoot */
   }
 }
+@layer components {
+  .form-textarea {
+    @apply w-full px-3 py-2 border rounded text-black min-h-[100px] bg-gray-200 focus:outline-none resize-y;
+  }
+}

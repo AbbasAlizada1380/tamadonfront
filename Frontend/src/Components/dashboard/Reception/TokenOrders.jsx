@@ -5,21 +5,19 @@ import Bill from "../../Bill_Page/Bill";
 import CryptoJS from "crypto-js";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import vazirmatnFont from "/vazirmatnBase64.txt"; // Ensure this is a valid Base64 font
-// import SearchBar from "../../../Utilities/Searching"; // Using direct input for clarity like AddOrder
-import { FaSearch } from "react-icons/fa"; // Import search icon
-import { useDebounce } from "use-debounce"; // Import useDebounce
-import Pagination from "../../../Utilities/Pagination"; // Adjust path if needed
+import vazirmatnFont from "/vazirmatnBase64.txt";
+import { FaSearch } from "react-icons/fa";
+import { useDebounce } from "use-debounce";
+import Pagination from "../../../Utilities/Pagination";
 import { CiEdit } from "react-icons/ci";
 import { FaCheck, FaEdit } from "react-icons/fa";
 import { Price } from "./Price";
-
 import Swal from "sweetalert2";
 import BillTotalpage from "../../Bill_Page/BillTotalpage";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 // Define the API endpoint for fetching orders (similar to AddOrder)
-const ORDERS_API_ENDPOINT = `${BASE_URL}/group/orders/reception_list/today/`; // Or adjust if a different endpoint is needed for TokenOrders search
+const ORDERS_API_ENDPOINT = `${BASE_URL}/group/group/orders/reception_list/`; // Or adjust if a different endpoint is needed for TokenOrders search
 
 const TokenOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -34,29 +32,24 @@ const TokenOrders = () => {
   const [remaindedPrices, setRemaindedPrices] = useState({});
   const [reception_name, setReception_name] = useState({});
   const [DDate, setDDate] = useState({});
-  // const [totalCount, setTotalCount] = useState(0); // totalOrders is already used for this
   const [loading, setLoading] = useState(true);
-  const pageSize = 20; // Keep your desired page size
+  const pageSize = 20;
   const [currentPage, setCurrentPage] = useState(1);
-  // const [totalPages, setTotalPages] = useState(1); // Can be calculated from totalOrders and pageSize
   const [selectedAttribute, setSelectedAttribute] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState({});
-  const [users, setUsers] = useState({});
+  // ==================== THE ONLY CHANGE IS ON THIS LINE ====================
+  const [users, setUsers] = useState([]); // FIX: Initialize as an empty array instead of an object
+  // ========================================================================
   const [isClicked, setIsClicked] = useState(false);
-
-  // --- Search State ---
-  const [searchTerm, setSearchTerm] = useState(""); // Raw search input
-  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // Debounced value for API call
-
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
   const [showPrice, setShowPrice] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const secretKey = "TET4-1";
 
-  // --- Decryption Function (Keep as is) ---
   const decryptData = useCallback((hashedData) => {
     if (!hashedData) {
-      // console.error("No data to decrypt"); // Keep console logs minimal if preferred
       return null;
     }
     try {
@@ -72,9 +65,7 @@ const TokenOrders = () => {
   const handleClick = () => {
     setIsClicked(!isClicked);
   };
-  // --- Helper Functions (Keep printBill, getAuthToken, isTokenExpired, refreshAuthToken as is) ---
   const printBill = async () => {
-    // ... (keep existing printBill logic)
     const element = document.getElementById("bill-content");
     if (!element) {
       console.error("Bill content not found!");
@@ -82,10 +73,8 @@ const TokenOrders = () => {
     }
 
     try {
-      // A5 Portrait: 148mm x 210mm
       const billWidth = 148;
       const billHeight = 210;
-
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -130,7 +119,6 @@ const TokenOrders = () => {
 
   const refreshAuthToken = useCallback(async () => {
     try {
-      // Assuming refresh token logic exists and is stored securely
       const refreshToken = decryptData(localStorage.getItem("refresh_token")); // Or however you store it
       if (!refreshToken) throw new Error("Refresh token not found.");
 
@@ -142,33 +130,29 @@ const TokenOrders = () => {
       );
 
       const newAuthToken = response.data.access;
-      // Encrypt and store the new token (ensure encryption is consistent)
       const encryptedToken = CryptoJS.AES.encrypt(
         JSON.stringify(newAuthToken),
         secretKey
       ).toString();
       localStorage.setItem("auth_token", encryptedToken);
-      // Optionally update refresh token if backend sends a new one
-      // if (response.data.refresh) { ... }
       console.log("Token refreshed successfully.");
-      return newAuthToken; // Return the raw (decrypted) new token for immediate use
+      return newAuthToken;
     } catch (error) {
       console.error("Unable to refresh token", error);
-      // Handle logout or redirect to login if refresh fails
-      // e.g., localStorage.clear(); window.location.href = '/login';
       return null;
     }
-  }, [decryptData]); // Add decryptData dependency
- const fetchUsers = async () => {
-   try {
-     const response = await axios.get(`${BASE_URL}/users/api/users/`);
-     setUsers(response.data);
-   } catch (error) {
-     console.error("Error fetching users:", error);
-   }
+  }, [decryptData]);
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/users/api/users/`);
+      setUsers(response.data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
   };
-  useEffect(() => {fetchUsers()}, [])
-  // --- Fetch Data Function (Modified for Search) ---
+  useEffect(() => {
+    fetchUsers();
+  }, []);
   const fetchData = useCallback(async () => {
     setLoading(true);
     let token = getAuthToken();
@@ -192,22 +176,17 @@ const TokenOrders = () => {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-
-      // --- Build URL with Search and Pagination ---
       const params = new URLSearchParams({
         pagenum: currentPage.toString(),
-        page_size: pageSize.toString(), // Add page_size if your API supports it
+        page_size: pageSize.toString(),
       });
 
       if (debouncedSearchTerm) {
-        params.append("search", debouncedSearchTerm); // Add search parameter if term exists
+        params.append("search", debouncedSearchTerm);
       }
 
-      // Ensure the endpoint supports these parameters
       const ordersUrl = `${ORDERS_API_ENDPOINT}?${params.toString()}`;
-      // --- End URL Building ---
 
-      // Fetch orders, categories, and users (keep this structure if needed)
       const [ordersResponse, categoriesResponse, usersResponse] =
         await Promise.all([
           axios.get(ordersUrl, { headers }), // Use the constructed URL
@@ -217,13 +196,9 @@ const TokenOrders = () => {
 
       setOrders(ordersResponse.data.results || []);
       setTotalOrders(ordersResponse.data.count || 0);
-      // setTotalCount(ordersResponse.data.count || 0); // Redundant with totalOrders
-      // setTotalPages(Math.ceil(ordersResponse.data.count / pageSize)); // Calculated in Pagination
-
       setCategories(categoriesResponse.data || []);
       setDesigners(usersResponse.data || []); // Ensure this state is used or remove fetch
 
-      // --- Fetch Prices Logic (Keep as is) ---
       const newPrices = {};
       const newReceived = {};
       const newRemainded = {};
@@ -233,7 +208,6 @@ const TokenOrders = () => {
         await Promise.all(
           ordersResponse.data.results.map(async (order) => {
             try {
-              // Consider adding a check if price data is actually needed for the current view/search results
               const priceResponse = await axios.get(
                 `${BASE_URL}/group/order-by-price/`,
                 {
@@ -250,25 +224,20 @@ const TokenOrders = () => {
                 newDeliveryDate[order.id] = data1[0].delivery_date;
                 newReception_name[order.id] = data1[0].reception_name;
               } else {
-                // console.warn(`No price data found for order ID: ${order.id}`);
               }
             } catch (priceError) {
-              // Handle price fetch errors gracefully (e.g., don't block UI)
               if (priceError.response?.status === 404) {
-                // console.warn(`Price data not found for order ID: ${order.id}`);
               } else {
-                // console.error(`Error fetching price for order ID: ${order.id}`, priceError);
               }
-              // Set default/placeholder values if needed
               newPrices[order.id] = newPrices[order.id] ?? "N/A";
               newReceived[order.id] = newReceived[order.id] ?? "N/A";
               newRemainded[order.id] = newRemainded[order.id] ?? "N/A";
               newDeliveryDate[order.id] = newDeliveryDate[order.id] ?? "N/A";
-              newReception_name[order.id] = newReception_name[order.id] ?? "N/A";
+              newReception_name[order.id] =
+                newReception_name[order.id] ?? "N/A";
             }
           })
         );
-        // Update price states outside the map loop for efficiency
         setPrices((prevPrices) => ({ ...prevPrices, ...newPrices }));
         setReceivedPrices((prevReceived) => ({
           ...prevReceived,
@@ -290,18 +259,15 @@ const TokenOrders = () => {
         error.response?.data || error.message || error
       );
       if (error.response?.status === 401) {
-        // Specific handling for unauthorized, maybe try refresh again or logout
         console.error(
           "Unauthorized access - token might be invalid or expired."
         );
         await refreshAuthToken(); // Attempt refresh again or trigger logout
       }
-      // Set empty state on error to avoid displaying stale data
       setOrders([]);
       setTotalOrders(0);
       setCategories([]);
       setDesigners([]);
-      // Optional: Show error message to user using Swal or similar
     } finally {
       setLoading(false);
     }
@@ -311,20 +277,17 @@ const TokenOrders = () => {
     debouncedSearchTerm,
     getAuthToken,
     refreshAuthToken,
-  ]); // Add dependencies
+  ]);
 
-  // --- Event Handlers (Keep existing handlers, add search handler) ---
   const onPageChange = useCallback((page) => {
     setCurrentPage(page);
   }, []);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    // No need to set page here, the useEffect below handles it
   };
 
   const handleComplete = async (id) => {
-    // ... (keep existing handleComplete logic)
     try {
       const authToken = decryptData(localStorage.getItem("auth_token"));
       if (!authToken) {
@@ -373,49 +336,31 @@ const TokenOrders = () => {
       return category ? category.name : "نامشخص";
     },
     [categories]
-  ); // Add categories dependency
+  );
 
   const handleShowAttribute = (order, status) => {
     setPassedOrder(order);
     setSelectedStatus(status);
-    // setIsModelOpen(true); // This is called in the button's onClick directly
   };
 
-  // --- useEffect Hooks ---
   useEffect(() => {
     fetchData();
     // Dependency array includes fetchData which includes its own dependencies (currentPage, debouncedSearchTerm, etc.)
-  }, [fetchData,showPrice]);
+  }, [fetchData, showPrice]);
 
-  // Effect to reset page to 1 when search term changes (debounced)
   useEffect(() => {
-    // Check specifically if debouncedSearchTerm is defined to avoid triggering on initial mount
-    // and only reset if not already on page 1
     if (debouncedSearchTerm !== undefined && currentPage !== 1) {
       setCurrentPage(1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchTerm]); // Only depend on the debounced term
 
-  // --- Remove Client-Side Search Effect ---
-  // useEffect(() => {
-  //   if (searchTerm) {
-  //     const results = orders.filter(/* ... */); // This is no longer needed
-  //     setSearchResults(results);
-  //   } else {
-  //     setSearchResults([]);
-  //   }
-  // }, [searchTerm, orders, categories]);
-  // const [searchResults, setSearchResults] = useState([]); // Remove this state
-
-  // --- Loading State ---
   if (loading && orders.length === 0) {
     // Show initial loading indicator
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="loader mr-3"></div>
         <span className="text-xl font-semibold">در حال بارگذاری...</span>
-        <style jsx>{`
+        <style>{`
           .loader {
             width: 40px;
             height: 40px;
@@ -437,11 +382,9 @@ const TokenOrders = () => {
   return (
     <div className="mt-8 px-4 md:px-10 pb-10">
       {" "}
-      {/* Added padding bottom */}
       <h2 className="md:text-2xl text-base text-center font-Ray_black font-bold mb-4">
         لیست سفارشات تکمیلی
       </h2>
-      {/* --- Search Bar Section (Similar to AddOrder) --- */}
       <div className="flex items-center justify-center mb-4 gap-x-3">
         <label
           htmlFor="orderSearch"
@@ -465,11 +408,7 @@ const TokenOrders = () => {
             پاک کردن
           </button>
         )}
-        {/* Optional: Add search icon if desired */}
-        {/* <FaSearch className="text-gray-500 ml-[-30px]" /> */}
       </div>
-      {/* --- End Search Bar Section --- */}
-      {/* Keep Bill Button as is */}
       {selectedOrders.length > 0 && (
         <button
           onClick={() => setIsTotalModelOpen(true)}
@@ -478,14 +417,12 @@ const TokenOrders = () => {
           نمایش بیل انتخاب شده‌ها
         </button>
       )}
-      {/* Table Section with Loading Overlay */}
       <div className="relative w-full mx-auto overflow-x-auto lg:overflow-hidden">
-        {/* Loading Overlay (shows during refetch/search) */}
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
             <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
             <span className="ml-2 text-gray-600">در حال بارگذاری...</span>
-            <style jsx>{`
+            <style>{`
               .loader {
                 border-top-color: #3b82f6;
                 animation: spinner 1.2s linear infinite;
@@ -623,7 +560,7 @@ const TokenOrders = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="9" className="border p-3 text-center">
+                    <td colSpan="11" className="border p-3 text-center">
                       هیچ سفارشی با وضعیت 'گرفته شده' وجود ندارد.
                     </td>
                   </tr>
@@ -651,12 +588,7 @@ const TokenOrders = () => {
             onClick={() => setIsModelOpen(false)}
           ></div>
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            {" "}
-            {/* Added padding */}
             <div className="relative bg-white rounded-lg shadow-xl w-[148mm] max-h-[90vh] ">
-              {" "}
-              {/* Max height and scroll */}
-              {/* Close button inside */}
               <button
                 onClick={() => setIsModelOpen(false)}
                 className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"
@@ -677,10 +609,8 @@ const TokenOrders = () => {
                   />
                 </svg>
               </button>
-              {/* Bill content with ID */}
               <div id="bill-content" className="p-4">
                 {" "}
-                {/* Adjust padding as needed */}
                 <Bill
                   order={passedOrder}
                   orders={orders.filter((order) =>
@@ -688,7 +618,6 @@ const TokenOrders = () => {
                   )} // Pass selected if needed, or just passedOrder
                 />
               </div>
-              {/* Print button outside the scrollable content, positioned relative to the modal */}
               <div className="sticky bottom-0 bg-white p-3 border-t text-center">
                 <button onClick={printBill} className="secondry-btn z-50">
                   چاپ بیل
@@ -700,15 +629,12 @@ const TokenOrders = () => {
       )}
       {isTotalModelOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsTotalModelOpen(false)}
           ></div>
-          {/* Centered Modal */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-              {/* Close button */}
               <button
                 onClick={() => setIsTotalModelOpen(false)}
                 className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"

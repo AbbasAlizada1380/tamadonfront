@@ -381,9 +381,11 @@ const TokenOrders = () => {
   return (
     <div className="mt-8 px-4 md:px-10 pb-10">
       {" "}
+      {/* Added padding bottom */}
       <h2 className="md:text-2xl text-base text-center font-Ray_black font-bold mb-4">
         لیست سفارشات تکمیلی
       </h2>
+      {/* --- Search Bar Section (Similar to AddOrder) --- */}
       <div className="flex items-center justify-center mb-4 gap-x-3">
         <label
           htmlFor="orderSearch"
@@ -407,7 +409,11 @@ const TokenOrders = () => {
             پاک کردن
           </button>
         )}
+        {/* Optional: Add search icon if desired */}
+        {/* <FaSearch className="text-gray-500 ml-[-30px]" /> */}
       </div>
+      {/* --- End Search Bar Section --- */}
+      {/* Keep Bill Button as is */}
       {selectedOrders.length > 0 && (
         <button
           onClick={() => setIsTotalModelOpen(true)}
@@ -416,7 +422,9 @@ const TokenOrders = () => {
           نمایش بیل انتخاب شده‌ها
         </button>
       )}
+      {/* Table Section with Loading Overlay */}
       <div className="relative w-full mx-auto overflow-x-auto lg:overflow-hidden">
+        {/* Loading Overlay (shows during refetch/search) */}
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
             <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
@@ -587,7 +595,12 @@ const TokenOrders = () => {
             onClick={() => setIsModelOpen(false)}
           ></div>
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+            {" "}
+            {/* Added padding */}
             <div className="relative bg-white rounded-lg shadow-xl w-[148mm] max-h-[90vh] ">
+              {" "}
+              {/* Max height and scroll */}
+              {/* Close button inside */}
               <button
                 onClick={() => setIsModelOpen(false)}
                 className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"
@@ -608,8 +621,10 @@ const TokenOrders = () => {
                   />
                 </svg>
               </button>
+              {/* Bill content with ID */}
               <div id="bill-content" className="p-4">
                 {" "}
+                {/* Adjust padding as needed */}
                 <Bill
                   order={passedOrder}
                   orders={orders.filter((order) =>
@@ -617,6 +632,7 @@ const TokenOrders = () => {
                   )} // Pass selected if needed, or just passedOrder
                 />
               </div>
+              {/* Print button outside the scrollable content, positioned relative to the modal */}
               <div className="sticky bottom-0 bg-white p-3 border-t text-center">
                 <button onClick={printBill} className="secondry-btn z-50">
                   چاپ بیل
@@ -628,12 +644,15 @@ const TokenOrders = () => {
       )}
       {isTotalModelOpen && (
         <>
+          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsTotalModelOpen(false)}
           ></div>
+          {/* Centered Modal */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+              {/* Close button */}
               <button
                 onClick={() => setIsTotalModelOpen(false)}
                 className="absolute top-2 right-2 bg-gray-200 rounded-full p-1 text-red-600 hover:bg-gray-300 z-50"

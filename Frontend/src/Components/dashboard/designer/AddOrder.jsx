@@ -80,7 +80,7 @@ const AddOrder = () => {
       [name]: type === "checkbox" ? checked : value,
     }));
   }, []);
-  
+
   const handleEdit = useCallback(
     (order) => {
       if (!order) return;
@@ -114,7 +114,6 @@ const AddOrder = () => {
     // Table search handler
     setOrderSearchTerm(e.target.value);
   };
-
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -497,13 +496,13 @@ const AddOrder = () => {
                       {field.name}
                     </label>
                     {field.attribute_type === "input" && (
-                      <input
-                        type="text"
+                      <textarea
+                        rows="4"
                         id={field.name}
                         name={field.name}
                         value={formData[field.name] || ""}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border rounded text-black"
+                        className="form-textarea"
                       />
                     )}
                     {field.attribute_type === "dropdown" && (
@@ -769,15 +768,14 @@ const AddOrder = () => {
           </tbody>
         </table>
 
-    
-          <div className="mt-6">
-            <Pagination
-              currentPage={currentPage}
-              totalOrders={totalOrders}
-              pageSize={pageSize}
-              onPageChange={onPageChange}
-            />
-          </div>
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalOrders={totalOrders}
+            pageSize={pageSize}
+            onPageChange={onPageChange}
+          />
+        </div>
         {/* )} */}
       </div>
     </div>
