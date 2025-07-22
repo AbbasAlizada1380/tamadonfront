@@ -878,8 +878,10 @@ const OrderList = () => {
                 >
                   <span className="font-medium text-gray-700">{key}</span>
                   {isEditing ? (
-                    <input
+                    <textarea
                       type="text"
+                      rows="2"
+                      
                       value={editingData.attributes[key] || ""}
                       onChange={(e) =>
                         setEditingData((prev) => ({
@@ -902,8 +904,9 @@ const OrderList = () => {
               <div className="flex justify-between items-center border-b border-gray-300 pb-2">
                 <span className="font-medium text-gray-700">توضیحات</span>
                 {isEditing ? (
-                  <input
+                  <textarea
                     type="text"
+                    rows="2"
                     value={editingData.description || ""}
                     onChange={(e) =>
                       setEditingData((prev) => ({

@@ -99,10 +99,22 @@ const ReceivingVisitCard = () => {
   const fetchCategories = useCallback(async () => {
     try {
       const response = await axios.get(`${BASE_URL}/group/categories/`);
-      setCategories(response.data);
-      setVisitCardCategory(
-        response.data.find((category) => category.name == "ویزیت کارت")?.id
+
+      // Find and prioritize "ویزیت کارت" category
+      const visitCardCat = response.data.find(
+        (category) => category.name === "ویزیت کارت"
       );
+      const otherCategories = response.data.filter(
+        (category) => category.name !== "ویزیت کارت"
+      );
+
+      // Create new ordered array with "ویزیت کارت" first
+      const orderedCategories = visitCardCat
+        ? [visitCardCat, ...otherCategories]
+        : response.data;
+
+      setCategories(orderedCategories);
+      setVisitCardCategory(visitCardCat?.id);
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
@@ -120,64 +132,64 @@ const ReceivingVisitCard = () => {
         return;
       }
       setLoading(true);
-        try {
-          const token = decryptData(localStorage.getItem("auth_token"));
-          if (!token) {
-            console.error("Authentication token not found or invalid.");
-            setOrders([]);
-            setTotalOrders(0);
-            setLoading(false);
-            return;
-          }
-          const roleDetails = roles.find((r) => r.id === userRole);
-          const roleName = roleDetails?.name;
-
-          if (!roleName) {
-            console.error("User role name could not be determined.");
-            setOrders([]);
-            setTotalOrders(0);
-            setLoading(false);
-            return;
-          }
-
-          let url = `${BASE_URL}/group/orders/status_list/${roleName}/?category=18&pagenum=${page}&page_size=${pageSize}&`;
-          if (search) {
-            url += `&search=${encodeURIComponent(search)}`;
-          }
-
-          // --- DATE FILTERING LOGIC ---
-          if (filterDate) {
-            // filterDate here is the appliedFilterDate
-            // IMPORTANT: Ensure your backend expects the query parameter 'date'
-            // and the format 'YYYY-MM-DD' (which <input type="date"> provides).
-            // If your backend expects a different parameter name (e.g., 'order_date'), change 'date' below.
-            // If it expects a different format, you'll need to convert filterDate before appending.
-            url += `&date=${filterDate}`;
-          }
-          // --- END DATE FILTERING LOGIC ---
-
-          // --- ADD THIS CONSOLE.LOG TO DEBUG THE URL ---
-          console.log("Requesting URL for orders:", url);
-          // --- You should see something like: ...&date=2023-11-21 if a date is applied ---
-          const response = await axios.get(url, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-          // console.log("API Response for orders:", response); // Optional: log the full response
-
-          setOrders(response.data.results || []);
-          console.log(response.data.results);
-
-          setTotalOrders(response.data.count || 0);
-        } catch (err) {
-          console.error("Error fetching List", err);
+      try {
+        const token = decryptData(localStorage.getItem("auth_token"));
+        if (!token) {
+          console.error("Authentication token not found or invalid.");
           setOrders([]);
           setTotalOrders(0);
-        } finally {
           setLoading(false);
+          return;
         }
+        const roleDetails = roles.find((r) => r.id === userRole);
+        const roleName = roleDetails?.name;
+
+        if (!roleName) {
+          console.error("User role name could not be determined.");
+          setOrders([]);
+          setTotalOrders(0);
+          setLoading(false);
+          return;
+        }
+
+        let url = `${BASE_URL}/group/orders/status_list/${roleName}/?category=18&pagenum=${page}&page_size=${pageSize}&`;
+        if (search) {
+          url += `&search=${encodeURIComponent(search)}`;
+        }
+
+        // --- DATE FILTERING LOGIC ---
+        if (filterDate) {
+          // filterDate here is the appliedFilterDate
+          // IMPORTANT: Ensure your backend expects the query parameter 'date'
+          // and the format 'YYYY-MM-DD' (which <input type="date"> provides).
+          // If your backend expects a different parameter name (e.g., 'order_date'), change 'date' below.
+          // If it expects a different format, you'll need to convert filterDate before appending.
+          url += `&date=${filterDate}`;
+        }
+        // --- END DATE FILTERING LOGIC ---
+
+        // --- ADD THIS CONSOLE.LOG TO DEBUG THE URL ---
+        console.log("Requesting URL for orders:", url);
+        // --- You should see something like: ...&date=2023-11-21 if a date is applied ---
+        const response = await axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        // console.log("API Response for orders:", response); // Optional: log the full response
+
+        setOrders(response.data.results || []);
+        console.log(response.data.results);
+
+        setTotalOrders(response.data.count || 0);
+      } catch (err) {
+        console.error("Error fetching List", err);
+        setOrders([]);
+        setTotalOrders(0);
+      } finally {
+        setLoading(false);
+      }
     },
     [BASE_URL, userRole, decryptData, roles, pageSize] // Dependencies for useCallback
   );

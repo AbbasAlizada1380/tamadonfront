@@ -247,7 +247,7 @@ const Dashboard = () => {
       "PTokenOrders",
       "OneColorList",
       "ColorFullList",
-      // "VisitCard",
+      "VisitCard",
       "Logout",
     ],
     4: ["defaultPage", "ReceivedList", "Logout"],
@@ -300,7 +300,7 @@ const Dashboard = () => {
     {
       component: "category",
       label: "کتگوری",
-      icon: <FaThList />, // Represents categorized items
+      icon: <FaThList />,
       element: <Category />,
     },
     {
