@@ -565,7 +565,7 @@ const Dashboard = () => {
             </Link>
 
             <div className={` ${isSidebarExpanded ? "block" : "hidden"} `}>
-              <p className="text-white font-bold text-2xl ">چاپخانه تمدن</p>
+              <p className="text-white font-bold text-2xl ">چاپخانه شما</p>
             </div>
           </div>
         </div>
