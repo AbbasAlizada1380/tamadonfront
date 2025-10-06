@@ -753,7 +753,7 @@ const Dashboard = () => {
         </main>
       </div>
 
-      <div
+      {/* <div
         className="fixed bottom-6 left-6 flex items-center gap-3 px-4 py-2 bg-blue-600 text-white rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition-all duration-300 z-50"
         onClick={() => setIsMessagingOpen(true)}
       >
@@ -766,7 +766,7 @@ const Dashboard = () => {
             </span>
           )}
         </span>
-      </div>
+      </div> */}
 
       {/* Conditionally render the UpdateProfile modal */}
       {isProfilePopupOpen && (
