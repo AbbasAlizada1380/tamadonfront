@@ -251,7 +251,7 @@ function LoginPage() {
         <div className="flex flex-col items-center  col-span-2  space-y-4">
           {/* Company Logo & Name */}
           <div className="flex justify-center gap-x-10 items-center bg-green rounded-t-lg lg:h-[130px] w-full">
-            <div className="border rounded-full  p-2 w-24 h-24 bg-white">
+            <div className="border   p-2 w-24 h-24 bg-white">
               {" "}
               <img
                 src="/Tamadon.png"
@@ -262,11 +262,11 @@ function LoginPage() {
             <div>
               <h2 className="text-2xl lg:text-5xl font-bold text-gray-100 mt-2">
                 {" "}
-                مطبعه تمدن
+                مطبعه شما
               </h2>
               <h2 className="text-2xl lg:text-xl font-bold text-gray-100 mt-1">
                 {" "}
-                Tamadon printing press
+                your printing press
               </h2>
             </div>
           </div>
