@@ -140,10 +140,10 @@ const SideHeader = ({ navItems }) => {
             </Link>
             <div className="md:space-y-1 text-center  lg:text-right">
               <h1 className="md:text-5xl text-lg font-bold font-Ray text-[#fff]">
-                مطبعه تمدن
+                مطبعه شما
               </h1>
               <h2 className="lg:text-xl hidden lg:block text-md  text-[#fff] ">
-                Tamadon Printing Press
+                your Printing Press
               </h2>
             </div>
           </div>

@@ -41,7 +41,7 @@ const Navbar = ({ navItems }) => {
               </Link>
               <div className="md:space-y-1 bg-[#00513a] text-white dark:bg-primary ">
                 <h1 className="text-lg font-bold  font-Ray dark:text-[#fff]">
-                  مطبعه تمدن
+                  مطبعه شما
                 </h1>
                 <h2 className="text-sm font-semibold dark:text-[#fff] tracking-wide">
                   Printing Press

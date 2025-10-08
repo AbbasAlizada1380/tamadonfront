@@ -67,10 +67,10 @@ function Footer() {
             </div>
             <div className="text-center md:text-left lg:space-y-2">
               <h1 className="md:text-5xl text-2xl font-Ray font-bold text-black md:text-[#fff]">
-                چاپخانه تمدن
+                چاپخانه شما
               </h1>
               <h2 className="lg:text-xl md:text-2xl text-md font-semibold text-black md:text-[#fff] tracking-wide">
-                Tamadon Printing Press
+                your Printing Press
               </h2>
             </div>
           </div>
@@ -102,14 +102,13 @@ function Footer() {
               تماس با ما
             </h3>
             <p className="flex items-center  text-sm md:text-base gap-x-3">
-              <span className="font-bold"> نشانی ما :</span> کوتة سنگی، سرک
-              دهبوری، مارکیت اتفاق{" "}
+              <span className="font-bold"> نشانی ما :</span> کوتة سنگی
             </p>
             <p className="flex items-center text-sm md:text-base  gap-x-3">
               <span className="font-bold"> تلفن :</span> 93-772-029-545+
             </p>
             <p className="flex items-center text-sm md:text-base gap-x-3">
-              <span className="font-bold"> ایمیل:</span> tamadon.af@gmail.com
+              <span className="font-bold"> ایمیل:</span> your.af@gmail.com
             </p>
           </div>
         </div>
